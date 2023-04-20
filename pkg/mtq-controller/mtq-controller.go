@@ -272,28 +272,29 @@ func (ctrl *ManagedQuotaController) getAllBlockingRQsInNS(migrationsToBlockingRQ
 
 func Run(threadiness int, stop <-chan struct{}) error {
 	defer utilruntime.HandleCrash()
-	cli, err := getVirtCli()
+
+	cli, err := util.GetVirtCli()
 	if err != nil {
 		return nil
 	}
-	migrationInformer, err := getMigrationInformer(cli)
+	migrationInformer, err := util.GetMigrationInformer(cli)
 	if err != nil {
 		os.Exit(1)
 	}
-	podInformer, err := getPodInformer(cli)
+	podInformer, err := util.GetPodInformer(cli)
 	if err != nil {
 		os.Exit(1)
 	}
-	resourceQuotaInformer, err := getResourceQuotaInformer(cli)
+	resourceQuotaInformer, err := util.GetResourceQuotaInformer(cli)
 	if err != nil {
 		os.Exit(1)
 	}
-	vmiInformer, err := getVMIInformer(cli)
+	vmiInformer, err := util.GetVMIInformer(cli)
 	if err != nil {
 		os.Exit(1)
 	}
 
-	virtualMachineMigrationResourceQuotaInformer, err := getVirtualMachineMigrationResourceQuota(cli)
+	virtualMachineMigrationResourceQuotaInformer, err := util.GetVirtualMachineMigrationResourceQuota(cli)
 	if err != nil {
 		os.Exit(1)
 	}
@@ -509,14 +510,8 @@ func (ctrl *ManagedQuotaController) addResourcesToRQs(rqNameAndSpeclist []v1alph
 }
 
 func shouldUpdateVmmrq(currVmmrq *v1alpha12.VirtualMachineMigrationResourceQuota, prevVmmrq *v1alpha12.VirtualMachineMigrationResourceQuota) bool {
-	currMarkedNSAsLocked := currVmmrq.Status.NamespaceLocked != nil && *currVmmrq.Status.NamespaceLocked == true
-	prevMarkedNSAsLocked := prevVmmrq.Status.NamespaceLocked != nil && *prevVmmrq.Status.NamespaceLocked == true
-	if currMarkedNSAsLocked != prevMarkedNSAsLocked {
-		return true
-	}
 	return !reflect.DeepEqual(currVmmrq.Status.OriginalBlockingResourceQuotas, prevVmmrq.Status.OriginalBlockingResourceQuotas) ||
 		!reflect.DeepEqual(currVmmrq.Status.MigrationsToBlockingResourceQuotas, prevVmmrq.Status.MigrationsToBlockingResourceQuotas)
-
 }
 
 func (ctrl *ManagedQuotaController) getCurrBlockingRQInNS(ns string, podToCreate *v1.Pod, listToAdd v1.ResourceList) ([]string, error) {
