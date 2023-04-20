@@ -1,0 +1,8 @@
+apiVersion: virtualmachinemigrationresourcequota.kubevirt.io/v1alpha1
+kind: VirtualMachineMigrationResourceQuota
+metadata:
+  name: my-vmmrq
+spec:
+  additionalMigrationResources:
+    cpu: 500m
+    memory: 512Mi
