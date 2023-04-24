@@ -2,7 +2,8 @@ package status
 
 import (
 	"context"
-	"kubevirt.io/api/virtualMachineMigrationResourceQuota/v1alpha1"
+	"kubevirt.io/managed-tenant-quota/pkg/apis/core/v1alpha1"
+	v1alpha12 "kubevirt.io/managed-tenant-quota/pkg/generated/clientset/versioned/typed/core/v1alpha1"
 	"sync"
 
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
@@ -26,7 +27,8 @@ const unknownObj = "Unknown object"
 type updater struct {
 	lock        sync.Mutex
 	subresource bool
-	cli         kubecli.KubevirtClient
+	virtCli     kubecli.KubevirtClient
+	mtqCli      v1alpha12.VirtualMachineMigrationResourceQuotaV1alpha1Client
 }
 
 func (u *updater) update(obj runtime.Object) (err error) {
@@ -121,21 +123,21 @@ func (u *updater) patchUnstructured(obj runtime.Object, patchType types.PatchTyp
 	switch obj.(type) {
 	case *v1.VirtualMachine:
 		oldObj := obj.(*v1.VirtualMachine)
-		newObj, err := u.cli.VirtualMachine(a.GetNamespace()).Patch(a.GetName(), patchType, data, patchOptions)
+		newObj, err := u.virtCli.VirtualMachine(a.GetNamespace()).Patch(a.GetName(), patchType, data, patchOptions)
 		if err != nil {
 			return "", "", err
 		}
 		return oldObj.ResourceVersion, newObj.ResourceVersion, nil
 	case *v1.KubeVirt:
 		oldObj := obj.(*v1.KubeVirt)
-		newObj, err := u.cli.KubeVirt(a.GetNamespace()).Patch(a.GetName(), patchType, data, patchOptions)
+		newObj, err := u.virtCli.KubeVirt(a.GetNamespace()).Patch(a.GetName(), patchType, data, patchOptions)
 		if err != nil {
 			return "", "", err
 		}
 		return oldObj.ResourceVersion, newObj.ResourceVersion, nil
 	case *poolv1.VirtualMachinePool:
 		oldObj := obj.(*poolv1.VirtualMachinePool)
-		newObj, err := u.cli.VirtualMachinePool(a.GetNamespace()).Patch(context.Background(), a.GetName(), patchType, data, *patchOptions)
+		newObj, err := u.virtCli.VirtualMachinePool(a.GetNamespace()).Patch(context.Background(), a.GetName(), patchType, data, *patchOptions)
 		if err != nil {
 			return "", "", err
 		}
@@ -152,10 +154,10 @@ func (u *updater) patchStatusUnstructured(obj runtime.Object, patchType types.Pa
 	}
 	switch obj.(type) {
 	case *v1.VirtualMachine:
-		_, err = u.cli.VirtualMachine(a.GetNamespace()).PatchStatus(a.GetName(), patchType, data, patchOptions)
+		_, err = u.virtCli.VirtualMachine(a.GetNamespace()).PatchStatus(a.GetName(), patchType, data, patchOptions)
 		return err
 	case *v1.KubeVirt:
-		_, err = u.cli.KubeVirt(a.GetNamespace()).PatchStatus(a.GetName(), patchType, data, patchOptions)
+		_, err = u.virtCli.KubeVirt(a.GetNamespace()).PatchStatus(a.GetName(), patchType, data, patchOptions)
 		return err
 	default:
 		panic(unknownObj)
@@ -170,35 +172,35 @@ func (u *updater) updateUnstructured(obj runtime.Object) (oldStatus interface{},
 	switch obj.(type) {
 	case *v1.VirtualMachine:
 		oldObj := obj.(*v1.VirtualMachine)
-		newObj, err := u.cli.VirtualMachine(a.GetNamespace()).Update(oldObj)
+		newObj, err := u.virtCli.VirtualMachine(a.GetNamespace()).Update(oldObj)
 		if err != nil {
 			return nil, nil, err
 		}
 		return oldObj.Status, newObj.Status, nil
 	case *v1.VirtualMachineInstanceReplicaSet:
 		oldObj := obj.(*v1.VirtualMachineInstanceReplicaSet)
-		newObj, err := u.cli.ReplicaSet(a.GetNamespace()).Update(oldObj)
+		newObj, err := u.virtCli.ReplicaSet(a.GetNamespace()).Update(oldObj)
 		if err != nil {
 			return nil, nil, err
 		}
 		return oldObj.Status, newObj.Status, nil
 	case *v1.VirtualMachineInstanceMigration:
 		oldObj := obj.(*v1.VirtualMachineInstanceMigration)
-		newObj, err := u.cli.VirtualMachineInstanceMigration(a.GetNamespace()).Update(oldObj)
+		newObj, err := u.virtCli.VirtualMachineInstanceMigration(a.GetNamespace()).Update(oldObj)
 		if err != nil {
 			return nil, nil, err
 		}
 		return oldObj.Status, newObj.Status, nil
 	case *v1.KubeVirt:
 		oldObj := obj.(*v1.KubeVirt)
-		newObj, err := u.cli.KubeVirt(a.GetNamespace()).Update(oldObj)
+		newObj, err := u.virtCli.KubeVirt(a.GetNamespace()).Update(oldObj)
 		if err != nil {
 			return nil, nil, err
 		}
 		return oldObj.Status, newObj.Status, nil
 	case *poolv1.VirtualMachinePool:
 		oldObj := obj.(*poolv1.VirtualMachinePool)
-		newObj, err := u.cli.VirtualMachinePool(a.GetNamespace()).Update(context.Background(), oldObj, metav1.UpdateOptions{})
+		newObj, err := u.virtCli.VirtualMachinePool(a.GetNamespace()).Update(context.Background(), oldObj, metav1.UpdateOptions{})
 		if err != nil {
 			return nil, nil, err
 		}
@@ -216,25 +218,25 @@ func (u *updater) updateStatusUnstructured(obj runtime.Object) (err error) {
 	switch obj.(type) {
 	case *v1.VirtualMachine:
 		oldObj := obj.(*v1.VirtualMachine)
-		_, err = u.cli.VirtualMachine(a.GetNamespace()).UpdateStatus(oldObj)
+		_, err = u.virtCli.VirtualMachine(a.GetNamespace()).UpdateStatus(oldObj)
 	case *v1.VirtualMachineInstanceReplicaSet:
 		oldObj := obj.(*v1.VirtualMachineInstanceReplicaSet)
-		_, err = u.cli.ReplicaSet(a.GetNamespace()).UpdateStatus(oldObj)
+		_, err = u.virtCli.ReplicaSet(a.GetNamespace()).UpdateStatus(oldObj)
 	case *v1.VirtualMachineInstanceMigration:
 		oldObj := obj.(*v1.VirtualMachineInstanceMigration)
-		_, err = u.cli.VirtualMachineInstanceMigration(a.GetNamespace()).UpdateStatus(oldObj)
+		_, err = u.virtCli.VirtualMachineInstanceMigration(a.GetNamespace()).UpdateStatus(oldObj)
 	case *v1.KubeVirt:
 		oldObj := obj.(*v1.KubeVirt)
-		_, err = u.cli.KubeVirt(a.GetNamespace()).UpdateStatus(oldObj)
+		_, err = u.virtCli.KubeVirt(a.GetNamespace()).UpdateStatus(oldObj)
 	case *clonev1alpha1.VirtualMachineClone:
 		oldObj := obj.(*clonev1alpha1.VirtualMachineClone)
-		_, err = u.cli.VirtualMachineClone(oldObj.Namespace).UpdateStatus(context.Background(), oldObj, metav1.UpdateOptions{})
+		_, err = u.virtCli.VirtualMachineClone(oldObj.Namespace).UpdateStatus(context.Background(), oldObj, metav1.UpdateOptions{})
 	case *poolv1.VirtualMachinePool:
 		oldObj := obj.(*poolv1.VirtualMachinePool)
-		_, err = u.cli.VirtualMachinePool(oldObj.Namespace).UpdateStatus(context.Background(), oldObj, metav1.UpdateOptions{})
+		_, err = u.virtCli.VirtualMachinePool(oldObj.Namespace).UpdateStatus(context.Background(), oldObj, metav1.UpdateOptions{})
 	case *v1alpha1.VirtualMachineMigrationResourceQuota:
 		oldObj := obj.(*v1alpha1.VirtualMachineMigrationResourceQuota)
-		_, err = u.cli.VirtualMachineMigrationResourceQuota(oldObj.Namespace).UpdateStatus(context.Background(), oldObj, metav1.UpdateOptions{})
+		_, err = u.mtqCli.VirtualMachineMigrationResourceQuotas(oldObj.Namespace).UpdateStatus(context.Background(), oldObj, metav1.UpdateOptions{})
 	default:
 		panic(unknownObj)
 	}
@@ -274,12 +276,13 @@ func (v *VMMRQStatusUpdater) UpdateStatus(vmmrq *v1alpha1.VirtualMachineMigratio
 	return v.update(vmmrq)
 }
 
-func NewVMMRQStatusUpdater(cli kubecli.KubevirtClient) *VMMRQStatusUpdater {
+func NewVMMRQStatusUpdater(virtCli kubecli.KubevirtClient, mtqCli v1alpha12.VirtualMachineMigrationResourceQuotaV1alpha1Client) *VMMRQStatusUpdater {
 	return &VMMRQStatusUpdater{
 		updater: updater{
 			lock:        sync.Mutex{},
 			subresource: true,
-			cli:         cli,
+			virtCli:     virtCli,
+			mtqCli:      mtqCli,
 		},
 	}
 }

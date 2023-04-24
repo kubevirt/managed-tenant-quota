@@ -23,7 +23,7 @@ func (ConfigMapVolumeSource) SwaggerDoc() map[string]string {
 func (SecretVolumeSource) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":            "SecretVolumeSource adapts a Secret into a volume.",
-		"secretName":  "Name of the secret in the pod's namespace to use.\nMore info: https://kubernetes.io/docs/concepts/storage/volumes#secret",
+		"secretName":  "Name of the secret in the pod's namespace to use.\nMore info: https://kubernetes.io/docs/concepts/storage/volumes#secret\n+optional",
 		"optional":    "Specify whether the Secret or it's keys must be defined\n+optional",
 		"volumeLabel": "The volume label of the resulting disk inside the VMI.\nDifferent bootstrapping mechanisms require different values.\nTypical values are \"cidata\" (cloud-init), \"config-2\" (cloud-init) or \"OEMDRV\" (kickstart).\n+optional",
 	}
@@ -368,9 +368,8 @@ func (SEV) SwaggerDoc() map[string]string {
 
 func (LunTarget) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"bus":         "Bus indicates the type of disk device to emulate.\nsupported values: virtio, sata, scsi.",
-		"readonly":    "ReadOnly.\nDefaults to false.",
-		"reservation": "Reservation indicates if the disk needs to support the persistent reservation for the SCSI disk",
+		"bus":      "Bus indicates the type of disk device to emulate.\nsupported values: virtio, sata, scsi.",
+		"readonly": "ReadOnly.\nDefaults to false.",
 	}
 }
 

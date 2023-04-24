@@ -75,6 +75,7 @@ type ConfigMapVolumeSource struct {
 type SecretVolumeSource struct {
 	// Name of the secret in the pod's namespace to use.
 	// More info: https://kubernetes.io/docs/concepts/storage/volumes#secret
+	// +optional
 	SecretName string `json:"secretName,omitempty"`
 	// Specify whether the Secret or it's keys must be defined
 	// +optional
@@ -661,8 +662,6 @@ type LunTarget struct {
 	// ReadOnly.
 	// Defaults to false.
 	ReadOnly bool `json:"readonly,omitempty"`
-	// Reservation indicates if the disk needs to support the persistent reservation for the SCSI disk
-	Reservation bool `json:"reservation,omitempty"`
 }
 
 // TrayState indicates if a tray of a cdrom is open or closed.

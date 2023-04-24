@@ -3,6 +3,7 @@ package status
 import (
 	"context"
 	"fmt"
+	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
 	k8sv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -10,9 +11,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/klog/v2"
 	k6tv1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/api/virtualMachineMigrationResourceQuota/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/managed-tenant-quota/pkg/apis/core/v1alpha1"
+	v1alpha12 "kubevirt.io/managed-tenant-quota/pkg/generated/clientset/versioned/typed/core/v1alpha1"
 	"time"
 )
 
@@ -32,6 +35,15 @@ func GetVirtCli() (kubecli.KubevirtClient, error) {
 	return virtCli, err
 }
 
+func GetMTQCli() (v1alpha12.VirtualMachineMigrationResourceQuotaV1alpha1Client, error) {
+	cfg, err := kubecli.GetKubevirtClientConfig()
+	if err != nil {
+		klog.Fatalf("Unable to get kube config: %v\n", errors.WithStack(err))
+	}
+	MTQCli := v1alpha12.NewForConfigOrDie(cfg)
+	return *MTQCli, nil
+}
+
 func GetMigrationInformer(virtCli kubecli.KubevirtClient) (cache.SharedIndexInformer, error) {
 	listWatcher := NewListWatchFromClient(virtCli.RestClient(), "virtualmachineinstancemigrations", k8sv1.NamespaceAll, fields.Everything(), labels.Everything())
 	vmiInformer := cache.NewSharedIndexInformer(listWatcher, &k6tv1.VirtualMachineInstanceMigration{}, 1*time.Hour, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
@@ -39,8 +51,8 @@ func GetMigrationInformer(virtCli kubecli.KubevirtClient) (cache.SharedIndexInfo
 	return vmiInformer, nil
 }
 
-func GetVirtualMachineMigrationResourceQuota(virtCli kubecli.KubevirtClient) (cache.SharedIndexInformer, error) {
-	listWatcher := NewListWatchFromClient(virtCli.GeneratedKubeVirtClient().VirtualMachineMigrationResourceQuotaV1alpha1().RESTClient(), "virtualmachinemigrationresourcequotas", k8sv1.NamespaceAll, fields.Everything(), labels.Everything())
+func GetVirtualMachineMigrationResourceQuota(mtqCli v1alpha12.VirtualMachineMigrationResourceQuotaV1alpha1Client) (cache.SharedIndexInformer, error) {
+	listWatcher := NewListWatchFromClient(mtqCli.RESTClient(), "virtualmachinemigrationresourcequotas", k8sv1.NamespaceAll, fields.Everything(), labels.Everything())
 	vmiInformer := cache.NewSharedIndexInformer(listWatcher, &v1alpha1.VirtualMachineMigrationResourceQuota{}, 1*time.Hour, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 
 	return vmiInformer, nil

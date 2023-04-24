@@ -16,14 +16,14 @@ import (
 	v12 "k8s.io/apiserver/pkg/quota/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
+	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/quota/v1/evaluator/core"
 	"k8s.io/utils/clock"
-	"k8s.io/utils/pointer"
 	v1alpha1 "kubevirt.io/api/core/v1"
-	v1alpha12 "kubevirt.io/api/virtualMachineMigrationResourceQuota/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	corev1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	v1alpha12 "kubevirt.io/managed-tenant-quota/pkg/apis/core/v1alpha1"
 	util "kubevirt.io/managed-tenant-quota/pkg/util"
 	"os"
 	"reflect"
@@ -47,7 +47,7 @@ type ManagedQuotaController struct {
 	virtCli                                      kubecli.KubevirtClient
 }
 
-func NewManagedQuotaController(cli kubecli.KubevirtClient, migrationInformer cache.SharedIndexInformer, podInformer cache.SharedIndexInformer, resourceQuotaInformer cache.SharedIndexInformer, virtualMachineMigrationResourceQuotaInformer cache.SharedIndexInformer, vmiInformer cache.SharedIndexInformer) *ManagedQuotaController {
+func NewManagedQuotaController(VMMRQStatusUpdater *util.VMMRQStatusUpdater, cli kubecli.KubevirtClient, migrationInformer cache.SharedIndexInformer, podInformer cache.SharedIndexInformer, resourceQuotaInformer cache.SharedIndexInformer, virtualMachineMigrationResourceQuotaInformer cache.SharedIndexInformer, vmiInformer cache.SharedIndexInformer) *ManagedQuotaController {
 	ctrl := ManagedQuotaController{
 		virtCli:               cli,
 		migrationInformer:     migrationInformer,
@@ -56,7 +56,7 @@ func NewManagedQuotaController(cli kubecli.KubevirtClient, migrationInformer cac
 		virtualMachineMigrationResourceQuotaInformer: virtualMachineMigrationResourceQuotaInformer,
 		vmiInformer:        vmiInformer,
 		migrationQueue:     workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "migration-queue"),
-		vmmrqStatusUpdater: util.NewVMMRQStatusUpdater(cli),
+		vmmrqStatusUpdater: VMMRQStatusUpdater,
 	}
 
 	_, err := ctrl.migrationInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -181,12 +181,6 @@ func (ctrl *ManagedQuotaController) execute(key string) error {
 		//TODO: lock namespace
 	}
 
-	if (vmmrq.Status.NamespaceLocked == nil || *vmmrq.Status.NamespaceLocked == false) && lockNS {
-		vmmrq.Status.NamespaceLocked = pointer.Bool(true)
-	} else if (vmmrq.Status.NamespaceLocked == nil || *vmmrq.Status.NamespaceLocked == true) && !lockNS {
-		vmmrq.Status.NamespaceLocked = pointer.Bool(false)
-	}
-
 	rqListToRestore := ctrl.getRQListToRestore(vmmrq, prevVmmrq)
 	if len(rqListToRestore) > 0 {
 		log.Log.Reason(err).Infof(fmt.Sprintf("OriginalBlockingResourceQuotas  restoring : %+v", rqListToRestore))
@@ -273,28 +267,32 @@ func (ctrl *ManagedQuotaController) getAllBlockingRQsInNS(migrationsToBlockingRQ
 func Run(threadiness int, stop <-chan struct{}) error {
 	defer utilruntime.HandleCrash()
 
-	cli, err := util.GetVirtCli()
+	virtCli, err := util.GetVirtCli()
 	if err != nil {
 		return nil
 	}
-	migrationInformer, err := util.GetMigrationInformer(cli)
+	mtqCli, err := util.GetMTQCli()
+	if err != nil {
+		klog.Fatalf("Unable to get mtqCli \n")
+	}
+	migrationInformer, err := util.GetMigrationInformer(virtCli)
 	if err != nil {
 		os.Exit(1)
 	}
-	podInformer, err := util.GetPodInformer(cli)
+	podInformer, err := util.GetPodInformer(virtCli)
 	if err != nil {
 		os.Exit(1)
 	}
-	resourceQuotaInformer, err := util.GetResourceQuotaInformer(cli)
+	resourceQuotaInformer, err := util.GetResourceQuotaInformer(virtCli)
 	if err != nil {
 		os.Exit(1)
 	}
-	vmiInformer, err := util.GetVMIInformer(cli)
+	vmiInformer, err := util.GetVMIInformer(virtCli)
 	if err != nil {
 		os.Exit(1)
 	}
 
-	virtualMachineMigrationResourceQuotaInformer, err := util.GetVirtualMachineMigrationResourceQuota(cli)
+	virtualMachineMigrationResourceQuotaInformer, err := util.GetVirtualMachineMigrationResourceQuota(mtqCli)
 	if err != nil {
 		os.Exit(1)
 	}
@@ -304,7 +302,9 @@ func Run(threadiness int, stop <-chan struct{}) error {
 	go virtualMachineMigrationResourceQuotaInformer.Run(stop)
 	go vmiInformer.Run(stop)
 
-	ctrl := NewManagedQuotaController(cli, migrationInformer, podInformer, resourceQuotaInformer, virtualMachineMigrationResourceQuotaInformer, vmiInformer)
+	VMMRQStatusUpdater := util.NewVMMRQStatusUpdater(virtCli, mtqCli)
+
+	ctrl := NewManagedQuotaController(VMMRQStatusUpdater, virtCli, migrationInformer, podInformer, resourceQuotaInformer, virtualMachineMigrationResourceQuotaInformer, vmiInformer)
 
 	log.Log.Info("Starting Managed Quota controller")
 	defer log.Log.Info("Shutting down Managed Quota controller")

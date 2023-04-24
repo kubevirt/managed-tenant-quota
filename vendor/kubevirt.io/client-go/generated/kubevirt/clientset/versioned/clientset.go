@@ -31,7 +31,6 @@ import (
 	migrationsv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/migrations/v1alpha1"
 	poolv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/pool/v1alpha1"
 	snapshotv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/snapshot/v1alpha1"
-	virtualmachinemigrationresourcequotav1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/virtualmachinemigrationresourcequota/v1alpha1"
 )
 
 type Interface interface {
@@ -43,21 +42,19 @@ type Interface interface {
 	MigrationsV1alpha1() migrationsv1alpha1.MigrationsV1alpha1Interface
 	PoolV1alpha1() poolv1alpha1.PoolV1alpha1Interface
 	SnapshotV1alpha1() snapshotv1alpha1.SnapshotV1alpha1Interface
-	VirtualMachineMigrationResourceQuotaV1alpha1() virtualmachinemigrationresourcequotav1alpha1.VirtualMachineMigrationResourceQuotaV1alpha1Interface
 }
 
 // Clientset contains the clients for groups. Each group has exactly one
 // version included in a Clientset.
 type Clientset struct {
 	*discovery.DiscoveryClient
-	cloneV1alpha1                                *clonev1alpha1.CloneV1alpha1Client
-	exportV1alpha1                               *exportv1alpha1.ExportV1alpha1Client
-	instancetypeV1alpha1                         *instancetypev1alpha1.InstancetypeV1alpha1Client
-	instancetypeV1alpha2                         *instancetypev1alpha2.InstancetypeV1alpha2Client
-	migrationsV1alpha1                           *migrationsv1alpha1.MigrationsV1alpha1Client
-	poolV1alpha1                                 *poolv1alpha1.PoolV1alpha1Client
-	snapshotV1alpha1                             *snapshotv1alpha1.SnapshotV1alpha1Client
-	virtualMachineMigrationResourceQuotaV1alpha1 *virtualmachinemigrationresourcequotav1alpha1.VirtualMachineMigrationResourceQuotaV1alpha1Client
+	cloneV1alpha1        *clonev1alpha1.CloneV1alpha1Client
+	exportV1alpha1       *exportv1alpha1.ExportV1alpha1Client
+	instancetypeV1alpha1 *instancetypev1alpha1.InstancetypeV1alpha1Client
+	instancetypeV1alpha2 *instancetypev1alpha2.InstancetypeV1alpha2Client
+	migrationsV1alpha1   *migrationsv1alpha1.MigrationsV1alpha1Client
+	poolV1alpha1         *poolv1alpha1.PoolV1alpha1Client
+	snapshotV1alpha1     *snapshotv1alpha1.SnapshotV1alpha1Client
 }
 
 // CloneV1alpha1 retrieves the CloneV1alpha1Client
@@ -93,11 +90,6 @@ func (c *Clientset) PoolV1alpha1() poolv1alpha1.PoolV1alpha1Interface {
 // SnapshotV1alpha1 retrieves the SnapshotV1alpha1Client
 func (c *Clientset) SnapshotV1alpha1() snapshotv1alpha1.SnapshotV1alpha1Interface {
 	return c.snapshotV1alpha1
-}
-
-// VirtualMachineMigrationResourceQuotaV1alpha1 retrieves the VirtualMachineMigrationResourceQuotaV1alpha1Client
-func (c *Clientset) VirtualMachineMigrationResourceQuotaV1alpha1() virtualmachinemigrationresourcequotav1alpha1.VirtualMachineMigrationResourceQuotaV1alpha1Interface {
-	return c.virtualMachineMigrationResourceQuotaV1alpha1
 }
 
 // Discovery retrieves the DiscoveryClient
@@ -149,10 +141,6 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 	if err != nil {
 		return nil, err
 	}
-	cs.virtualMachineMigrationResourceQuotaV1alpha1, err = virtualmachinemigrationresourcequotav1alpha1.NewForConfig(&configShallowCopy)
-	if err != nil {
-		return nil, err
-	}
 
 	cs.DiscoveryClient, err = discovery.NewDiscoveryClientForConfig(&configShallowCopy)
 	if err != nil {
@@ -172,7 +160,6 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 	cs.migrationsV1alpha1 = migrationsv1alpha1.NewForConfigOrDie(c)
 	cs.poolV1alpha1 = poolv1alpha1.NewForConfigOrDie(c)
 	cs.snapshotV1alpha1 = snapshotv1alpha1.NewForConfigOrDie(c)
-	cs.virtualMachineMigrationResourceQuotaV1alpha1 = virtualmachinemigrationresourcequotav1alpha1.NewForConfigOrDie(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClientForConfigOrDie(c)
 	return &cs
@@ -188,7 +175,6 @@ func New(c rest.Interface) *Clientset {
 	cs.migrationsV1alpha1 = migrationsv1alpha1.New(c)
 	cs.poolV1alpha1 = poolv1alpha1.New(c)
 	cs.snapshotV1alpha1 = snapshotv1alpha1.New(c)
-	cs.virtualMachineMigrationResourceQuotaV1alpha1 = virtualmachinemigrationresourcequotav1alpha1.New(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClient(c)
 	return &cs
