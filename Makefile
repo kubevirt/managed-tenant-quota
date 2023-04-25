@@ -3,6 +3,9 @@ all: build
 
 build:  mtq_controller
 
+generate:
+	./hack/update-codegen.sh
+
 mtq_controller:
 	go build -o mtq_controller -v cmd/mtq_controller/*.go
 	chmod 777 mtq_controller
