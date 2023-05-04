@@ -19,16 +19,16 @@ COPY Makefile /workdir/app/Makefile
 # Set the working directory to /app/pkg/mtq-controller
 WORKDIR /workdir/app
 
-RUN make build
+RUN make mtq_webhook
 
 # Final stage
 FROM golang:1.19-alpine
 
 # Copy the binary from the builder stage to the final image
-COPY --from=builder /workdir/app/mtq_controller /app/mtq_controller
+COPY --from=builder /workdir/app/mtq_webhook /app/mtq_webhook
 
 # Set the working directory to /app
 WORKDIR /app
 
 # Set the entrypoint to the binary
-ENTRYPOINT ["/app/mtq_controller"]
+ENTRYPOINT ["/app/mtq_webhook"]
