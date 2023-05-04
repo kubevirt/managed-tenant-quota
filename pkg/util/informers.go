@@ -1,4 +1,4 @@
-package status
+package util
 
 import (
 	"context"
@@ -51,7 +51,7 @@ func GetMigrationInformer(virtCli kubecli.KubevirtClient) (cache.SharedIndexInfo
 	return vmiInformer, nil
 }
 
-func GetVirtualMachineMigrationResourceQuota(mtqCli v1alpha12.VirtualMachineMigrationResourceQuotaV1alpha1Client) (cache.SharedIndexInformer, error) {
+func GetVirtualMachineMigrationResourceQuotaInformer(mtqCli v1alpha12.VirtualMachineMigrationResourceQuotaV1alpha1Client) (cache.SharedIndexInformer, error) {
 	listWatcher := NewListWatchFromClient(mtqCli.RESTClient(), "virtualmachinemigrationresourcequotas", k8sv1.NamespaceAll, fields.Everything(), labels.Everything())
 	vmiInformer := cache.NewSharedIndexInformer(listWatcher, &v1alpha1.VirtualMachineMigrationResourceQuota{}, 1*time.Hour, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 

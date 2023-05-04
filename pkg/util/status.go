@@ -1,4 +1,4 @@
-package status
+package util
 
 import (
 	"context"
