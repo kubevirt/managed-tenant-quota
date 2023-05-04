@@ -7,7 +7,8 @@ import (
 )
 
 func main() {
-	ctx, _ := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	stop := ctx.Done()
 	if err := mtq_controller.Run(3, stop); err != nil {
 		log.Log.Warningf("error running the clone controller: %v", err)
