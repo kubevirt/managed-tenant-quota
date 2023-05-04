@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: example-webhook
+  name: example-webhook
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: example-webhook
+  template:
+    metadata:
+      labels:
+        app: example-webhook
+    spec:
+      serviceAccountName: mtq-webhook
+      containers:
+        - image: quay.io/bmordeha/kubevirt/mtq_webhook:latest
+          imagePullPolicy: Always
+          name: example-webhook
+          env:
+            - name: TLS
+              value: "true"
+            - name: KUBEVIRT_INSTALL_NAMESPACE
+              value: "kubevirt"
+            - name: MTQ_INSTALL_NAMESPACE
+              value: "default"
+            - name: LOG_JSON
+              value: "false"
+          volumeMounts:
+            - name: tls
+              mountPath: "/etc/admission-webhook/tls"
+              readOnly: true
+      volumes:
+        - name: tls
+          secret:
+            secretName: example-webhook

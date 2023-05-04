@@ -41,3 +41,11 @@ rules:
   verbs:
   - list
   - watch
+- apiGroups:
+    - admissionregistration.k8s.io
+  resources:
+    - validatingwebhookconfigurations
+  verbs:
+    - create
+    - get
+    - delete
