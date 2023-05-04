@@ -7,6 +7,7 @@ import (
 	v13 "k8s.io/api/admissionregistration/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -40,31 +41,38 @@ const (
 )
 
 type ManagedQuotaController struct {
-	podInformer                                  cache.SharedIndexInformer
-	migrationInformer                            cache.SharedIndexInformer
-	resourceQuotaInformer                        cache.SharedIndexInformer
-	virtualMachineMigrationResourceQuotaInformer cache.SharedIndexInformer
-	vmiInformer                                  cache.SharedIndexInformer
-	migrationQueue                               workqueue.RateLimitingInterface
-	vmmrqStatusUpdater                           *util.VMMRQStatusUpdater
-	virtCli                                      kubecli.KubevirtClient
+	podInformer           cache.SharedIndexInformer
+	migrationInformer     cache.SharedIndexInformer
+	resourceQuotaInformer cache.SharedIndexInformer
+	vmmrqInformer         cache.SharedIndexInformer
+	vmiInformer           cache.SharedIndexInformer
+	migrationQueue        workqueue.RateLimitingInterface
+	vmmrqStatusUpdater    *util.VMMRQStatusUpdater
+	virtCli               kubecli.KubevirtClient
 }
 
-func NewManagedQuotaController(VMMRQStatusUpdater *util.VMMRQStatusUpdater, cli kubecli.KubevirtClient, migrationInformer cache.SharedIndexInformer, podInformer cache.SharedIndexInformer, resourceQuotaInformer cache.SharedIndexInformer, virtualMachineMigrationResourceQuotaInformer cache.SharedIndexInformer, vmiInformer cache.SharedIndexInformer) *ManagedQuotaController {
+func NewManagedQuotaController(VMMRQStatusUpdater *util.VMMRQStatusUpdater, cli kubecli.KubevirtClient, migrationInformer cache.SharedIndexInformer, podInformer cache.SharedIndexInformer, resourceQuotaInformer cache.SharedIndexInformer, vmmrqInformer cache.SharedIndexInformer, vmiInformer cache.SharedIndexInformer) *ManagedQuotaController {
 	ctrl := ManagedQuotaController{
 		virtCli:               cli,
 		migrationInformer:     migrationInformer,
 		podInformer:           podInformer,
 		resourceQuotaInformer: resourceQuotaInformer,
-		virtualMachineMigrationResourceQuotaInformer: virtualMachineMigrationResourceQuotaInformer,
-		vmiInformer:        vmiInformer,
-		migrationQueue:     workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "migration-queue"),
-		vmmrqStatusUpdater: VMMRQStatusUpdater,
+		vmmrqInformer:         vmmrqInformer,
+		vmiInformer:           vmiInformer,
+		migrationQueue:        workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "migration-queue"),
+		vmmrqStatusUpdater:    VMMRQStatusUpdater,
 	}
 
 	_, err := ctrl.migrationInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		DeleteFunc: ctrl.deleteMigration,
 		UpdateFunc: ctrl.updateMigration,
+	})
+	if err != nil {
+		return nil
+	}
+	_, err = ctrl.vmmrqInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    ctrl.addVmmrq,
+		UpdateFunc: ctrl.updateVmmrq,
 	})
 
 	if err != nil {
@@ -72,6 +80,52 @@ func NewManagedQuotaController(VMMRQStatusUpdater *util.VMMRQStatusUpdater, cli 
 	}
 
 	return &ctrl
+}
+
+// When a virtualMachineMigrationResourceQuota is added, figure out if there are pending migration in the namespace
+// if there are we should push them into the queue to accelerate the target creation process
+func (ctrl *ManagedQuotaController) addVmmrq(obj interface{}) {
+	vmmrq := obj.(*v1alpha12.VirtualMachineMigrationResourceQuota)
+	log.Log.V(4).Object(vmmrq).Infof("VMMRQ " + vmmrq.Name + " added")
+	objs, _ := ctrl.migrationInformer.GetIndexer().ByIndex(cache.NamespaceIndex, vmmrq.Namespace)
+	for _, obj := range objs {
+		migration := obj.(*v1alpha1.VirtualMachineInstanceMigration)
+		if migration.Status.Conditions == nil {
+			continue
+		}
+		for _, cond := range migration.Status.Conditions {
+			if cond.Type == VirtualMachineInstanceMigrationRejectedByResourceQuota {
+				ctrl.enqueueMigration(migration)
+			}
+		}
+	}
+	return
+}
+
+// When a virtualMachineMigrationResourceQuota is updated , figure out if there are pending migration in the namespace
+// if there are we should push them into the queue to accelerate the target creation process
+func (ctrl *ManagedQuotaController) updateVmmrq(old, cur interface{}) {
+	curVmmrq := cur.(*v1alpha12.VirtualMachineMigrationResourceQuota)
+	oldVmmrq := old.(*v1alpha12.VirtualMachineMigrationResourceQuota)
+	if equality.Semantic.DeepEqual(curVmmrq.Spec, oldVmmrq.Spec) {
+		// Periodic rsync will send update events for all known resourceQuotas.
+		// Also, resourceAllocation change will update resourceQuotas
+		return
+	}
+	log.Log.V(4).Object(curVmmrq).Infof("VMMRQ " + curVmmrq.Name + " updated")
+	objs, _ := ctrl.migrationInformer.GetIndexer().ByIndex(cache.NamespaceIndex, curVmmrq.Namespace)
+	for _, obj := range objs {
+		migration := obj.(*v1alpha1.VirtualMachineInstanceMigration)
+		if migration.Status.Conditions == nil {
+			continue
+		}
+		for _, cond := range migration.Status.Conditions {
+			if cond.Type == VirtualMachineInstanceMigrationRejectedByResourceQuota {
+				ctrl.enqueueMigration(migration)
+			}
+		}
+	}
+	return
 }
 
 func (ctrl *ManagedQuotaController) deleteMigration(obj interface{}) {
@@ -140,7 +194,7 @@ func (ctrl *ManagedQuotaController) execute(key string) error {
 		return nil
 	}
 
-	vmmrqObjsList, err := ctrl.virtualMachineMigrationResourceQuotaInformer.GetIndexer().ByIndex(cache.NamespaceIndex, migartionNS)
+	vmmrqObjsList, err := ctrl.vmmrqInformer.GetIndexer().ByIndex(cache.NamespaceIndex, migartionNS)
 	if err != nil {
 		return err
 	}
