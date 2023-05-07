@@ -42,6 +42,7 @@ const (
 )
 
 type ManagedQuotaController struct {
+	nsCache               *NamespaceCache
 	internalLock          *sync.Mutex
 	podInformer           cache.SharedIndexInformer
 	migrationInformer     cache.SharedIndexInformer
@@ -64,6 +65,7 @@ func NewManagedQuotaController(VMMRQStatusUpdater *util.VMMRQStatusUpdater, cli 
 		migrationQueue:        workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "migration-queue"),
 		vmmrqStatusUpdater:    VMMRQStatusUpdater,
 		internalLock:          &sync.Mutex{},
+		nsCache:               NewNamespaceCache(),
 	}
 
 	_, err := ctrl.migrationInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -247,11 +249,23 @@ func (ctrl *ManagedQuotaController) execute(key string) error {
 	ctrl.internalLock.Lock()
 	defer ctrl.internalLock.Unlock()
 
+	switch ctrl.nsCache.GetLockState(migartionNS) {
+	case Locked:
+		nsLocked = true
+	case Unlocked:
+		nsLocked = false
+	case Unknown: //expensive api call
+		nsLocked, err = namespaceLocked(migartionNS, ctrl.virtCli)
+		if err != nil {
+			return err
+		}
+	}
 	if shouldLockNS && !nsLocked {
 		err := lockNamespace(migartionNS, ctrl.virtCli)
 		if err != nil {
 			return err
 		}
+		ctrl.nsCache.markLockStateLocked(migartionNS)
 	}
 	err = ctrl.restoreOriginalRQs(rqListToRestore, prevVmmrq.Status.OriginalBlockingResourceQuotas, migartionNS)
 	if err != nil {
@@ -272,6 +286,7 @@ func (ctrl *ManagedQuotaController) execute(key string) error {
 		if err != nil {
 			return err
 		}
+		ctrl.nsCache.markLockStateUnlocked(migartionNS)
 	}
 	return nil //todo requeue migration
 }
@@ -718,7 +733,6 @@ func unlockNamespace(ns string, cli kubecli.KubevirtClient) error {
 }
 
 func namespaceLocked(ns string, cli kubecli.KubevirtClient) (bool, error) {
-	//todo: create map for optimization
 	webhookName := "lock." + ns + ".com"
 	ValidatingWH, err := cli.AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(context.Background(), webhookName, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
