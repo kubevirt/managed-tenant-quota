@@ -32,6 +32,7 @@ import (
 	"os"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -41,6 +42,7 @@ const (
 )
 
 type ManagedQuotaController struct {
+	internalLock          *sync.Mutex
 	podInformer           cache.SharedIndexInformer
 	migrationInformer     cache.SharedIndexInformer
 	resourceQuotaInformer cache.SharedIndexInformer
@@ -61,6 +63,7 @@ func NewManagedQuotaController(VMMRQStatusUpdater *util.VMMRQStatusUpdater, cli 
 		vmiInformer:           vmiInformer,
 		migrationQueue:        workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "migration-queue"),
 		vmmrqStatusUpdater:    VMMRQStatusUpdater,
+		internalLock:          &sync.Mutex{},
 	}
 
 	_, err := ctrl.migrationInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -237,20 +240,19 @@ func (ctrl *ManagedQuotaController) execute(key string) error {
 		finalBlockingRQList := newBlockingRQs(oldBlockingRQList, allBlockingRQsInNS)
 		vmmrq.Status.OriginalBlockingResourceQuotas = finalBlockingRQList
 	}
-
+	rqListToRestore := ctrl.getRQListToRestore(vmmrq, prevVmmrq)
 	shouldLockNS := shouldLockNS(vmmrq)
-	namespaceLocked, err := namespaceLocked(migartionNS, ctrl.virtCli)
-	if err != nil {
-		return err
-	}
-	if shouldLockNS && !namespaceLocked {
+	var nsLocked bool
+
+	ctrl.internalLock.Lock()
+	defer ctrl.internalLock.Unlock()
+
+	if shouldLockNS && !nsLocked {
 		err := lockNamespace(migartionNS, ctrl.virtCli)
 		if err != nil {
 			return err
 		}
 	}
-
-	rqListToRestore := ctrl.getRQListToRestore(vmmrq, prevVmmrq)
 	err = ctrl.restoreOriginalRQs(rqListToRestore, prevVmmrq.Status.OriginalBlockingResourceQuotas, migartionNS)
 	if err != nil {
 		return err
@@ -265,7 +267,7 @@ func (ctrl *ManagedQuotaController) execute(key string) error {
 	if err != nil {
 		return err
 	}
-	if !shouldLockNS && namespaceLocked {
+	if !shouldLockNS && nsLocked {
 		err := unlockNamespace(migartionNS, ctrl.virtCli)
 		if err != nil {
 			return err
@@ -590,7 +592,7 @@ func (ctrl *ManagedQuotaController) getCurrBlockingRQInNS(ns string, podToCreate
 			MatchContains: []string{"cpu", "memory"}, //TODO: check if more resources should be considered
 		},
 	}
-	for _, obj := range currRQListObj {
+	for _, obj := range currRQListObj { //todo: if the RQ is modifed should considered the spec of Vmmrq.Status.OriginalBlockingResourceQuotas[rq]
 		resourceQuota := obj.(*v1.ResourceQuota)
 		resourceQuotaCopy := resourceQuota.DeepCopy()
 		//Checking if the resourceQuota is blocking us
@@ -704,7 +706,6 @@ func lockNamespace(ns string, cli kubecli.KubevirtClient) error {
 	if err != nil {
 		return err
 	}
-
 	return nil
 }
 
