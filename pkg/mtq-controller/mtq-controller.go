@@ -52,6 +52,8 @@ type ManagedQuotaController struct {
 	migrationQueue        workqueue.RateLimitingInterface
 	vmmrqStatusUpdater    *util.VMMRQStatusUpdater
 	virtCli               kubecli.KubevirtClient
+	podEvaluator          v12.Evaluator
+	limitedResources      []resourcequota.LimitedResource
 }
 
 func NewManagedQuotaController(VMMRQStatusUpdater *util.VMMRQStatusUpdater, cli kubecli.KubevirtClient, migrationInformer cache.SharedIndexInformer, podInformer cache.SharedIndexInformer, resourceQuotaInformer cache.SharedIndexInformer, vmmrqInformer cache.SharedIndexInformer, vmiInformer cache.SharedIndexInformer) *ManagedQuotaController {
@@ -66,6 +68,13 @@ func NewManagedQuotaController(VMMRQStatusUpdater *util.VMMRQStatusUpdater, cli 
 		vmmrqStatusUpdater:    VMMRQStatusUpdater,
 		internalLock:          &sync.Mutex{},
 		nsCache:               NewNamespaceCache(),
+		podEvaluator:          core.NewPodEvaluator(nil, clock.RealClock{}),
+		limitedResources: []resourcequota.LimitedResource{
+			{
+				Resource:      "pods",
+				MatchContains: []string{"cpu", "memory"}, //TODO: check if more resources should be considered
+			},
+		},
 	}
 
 	_, err := ctrl.migrationInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -231,7 +240,7 @@ func (ctrl *ManagedQuotaController) execute(key string) error {
 		if err != nil {
 			return err
 		}
-		currBlockingRQList, err := ctrl.getCurrBlockingRQInNS(migartionNS, sourcePod, vmmrq.Spec.AdditionalMigrationResources)
+		currBlockingRQList, err := ctrl.getCurrBlockingRQInNS(vmmrq, migartionNS, sourcePod, vmmrq.Spec.AdditionalMigrationResources)
 		if err != nil {
 			return err
 		}
@@ -592,29 +601,28 @@ func shouldUpdateVmmrq(currVmmrq *v1alpha12.VirtualMachineMigrationResourceQuota
 		!reflect.DeepEqual(currVmmrq.Status.MigrationsToBlockingResourceQuotas, prevVmmrq.Status.MigrationsToBlockingResourceQuotas)
 }
 
-func (ctrl *ManagedQuotaController) getCurrBlockingRQInNS(ns string, podToCreate *v1.Pod, listToAdd v1.ResourceList) ([]string, error) {
+func (ctrl *ManagedQuotaController) getCurrBlockingRQInNS(vmmrq *v1alpha12.VirtualMachineMigrationResourceQuota, ns string, podToCreate *v1.Pod, listToAdd v1.ResourceList) ([]string, error) {
 	currRQListObj, err := ctrl.resourceQuotaInformer.GetIndexer().ByIndex(cache.NamespaceIndex, ns)
 	if err != nil {
 		return nil, err
 	}
 	var currRQListItems []string
+	podToCreateAttr := k8sadmission.NewAttributesRecord(podToCreate, nil,
+		apiextensions.Kind("Pod").WithVersion("version"), podToCreate.Namespace, podToCreate.Name,
+		corev1beta1.Resource("pods").WithVersion("version"), "", k8sadmission.Create,
+		&metav1.CreateOptions{}, false, nil)
 
-	podToCreateAttr := k8sadmission.NewAttributesRecord(podToCreate, nil, apiextensions.Kind("Pod").WithVersion("version"), podToCreate.Namespace, podToCreate.Name, corev1beta1.Resource("pods").WithVersion("version"), "", k8sadmission.Create, &metav1.CreateOptions{}, false, nil)
-	podEvaluator := core.NewPodEvaluator(nil, clock.RealClock{})
-	limitedResources := []resourcequota.LimitedResource{
-		{
-			Resource:      "pods",
-			MatchContains: []string{"cpu", "memory"}, //TODO: check if more resources should be considered
-		},
-	}
-	for _, obj := range currRQListObj { //todo: if the RQ is modifed should considered the spec of Vmmrq.Status.OriginalBlockingResourceQuotas[rq]
+	for _, obj := range currRQListObj {
 		resourceQuota := obj.(*v1.ResourceQuota)
+		if origRQNameAndSpec := getRQNameAndSpecIfExist(vmmrq.Status.OriginalBlockingResourceQuotas, resourceQuota.Name); origRQNameAndSpec != nil {
+			resourceQuota.Spec = origRQNameAndSpec.Spec
+		}
 		resourceQuotaCopy := resourceQuota.DeepCopy()
 		//Checking if the resourceQuota is blocking us
-		_, errWithCurrRQ := admitPodToQuota(resourceQuotaCopy, podToCreateAttr, podEvaluator, limitedResources)
+		_, errWithCurrRQ := admitPodToQuota(resourceQuotaCopy, podToCreateAttr, ctrl.podEvaluator, ctrl.limitedResources)
 		//checking if the additional resources in vmmRQ will unblock us
 		rqAfterResourcesAddition := addResourcesToRQ(*resourceQuotaCopy, &listToAdd)
-		_, errWithMofifiedRQ := admitPodToQuota(rqAfterResourcesAddition, podToCreateAttr, podEvaluator, limitedResources)
+		_, errWithMofifiedRQ := admitPodToQuota(rqAfterResourcesAddition, podToCreateAttr, ctrl.podEvaluator, ctrl.limitedResources)
 		if errWithCurrRQ != nil && strings.Contains(errWithCurrRQ.Error(), "exceeded quota") && errWithMofifiedRQ == nil { //TODO:think about this logic so we won't be stock or let the user know
 			currRQListItems = append(currRQListItems, (*resourceQuota).Name)
 		} else if errWithMofifiedRQ != nil && strings.Contains(errWithMofifiedRQ.Error(), "exceeded quota") {
@@ -846,4 +854,13 @@ func parseKey(key string) (string, string, error) {
 	migartionNS := parts[0]
 	migrationName := parts[1]
 	return migartionNS, migrationName, nil
+}
+
+func getRQNameAndSpecIfExist(blockingRQsList []v1alpha12.ResourceQuotaNameAndSpec, name string) *v1alpha12.ResourceQuotaNameAndSpec {
+	for _, rq := range blockingRQsList {
+		if rq.Name == name {
+			return &rq
+		}
+	}
+	return nil
 }
