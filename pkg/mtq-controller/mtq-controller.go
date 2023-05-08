@@ -18,7 +18,10 @@ import (
 	quotaplugin "k8s.io/apiserver/pkg/admission/plugin/resourcequota"
 	"k8s.io/apiserver/pkg/admission/plugin/resourcequota/apis/resourcequota"
 	v12 "k8s.io/apiserver/pkg/quota/v1"
+	"k8s.io/client-go/kubernetes/scheme"
+	v14 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/quota/v1/evaluator/core"
@@ -37,7 +40,7 @@ import (
 )
 
 const (
-	unknownTypeErrFmt                                                                                            = "Managed Quota controller expected object of type %s but found object of unknown type"
+	FailedToReleaseMigrationReason                         string                                                = "NotEnoughResourceToRelease"
 	VirtualMachineInstanceMigrationRejectedByResourceQuota v1alpha1.VirtualMachineInstanceMigrationConditionType = "migrationRejectedByResourceQuota"
 )
 
@@ -52,11 +55,15 @@ type ManagedQuotaController struct {
 	migrationQueue        workqueue.RateLimitingInterface
 	vmmrqStatusUpdater    *util.VMMRQStatusUpdater
 	virtCli               kubecli.KubevirtClient
+	recorder              record.EventRecorder
 	podEvaluator          v12.Evaluator
 	limitedResources      []resourcequota.LimitedResource
 }
 
 func NewManagedQuotaController(VMMRQStatusUpdater *util.VMMRQStatusUpdater, cli kubecli.KubevirtClient, migrationInformer cache.SharedIndexInformer, podInformer cache.SharedIndexInformer, resourceQuotaInformer cache.SharedIndexInformer, vmmrqInformer cache.SharedIndexInformer, vmiInformer cache.SharedIndexInformer) *ManagedQuotaController {
+	eventBroadcaster := record.NewBroadcaster()
+	eventBroadcaster.StartRecordingToSink(&v14.EventSinkImpl{Interface: cli.CoreV1().Events(v1.NamespaceAll)})
+
 	ctrl := ManagedQuotaController{
 		virtCli:               cli,
 		migrationInformer:     migrationInformer,
@@ -68,6 +75,7 @@ func NewManagedQuotaController(VMMRQStatusUpdater *util.VMMRQStatusUpdater, cli 
 		vmmrqStatusUpdater:    VMMRQStatusUpdater,
 		internalLock:          &sync.Mutex{},
 		nsCache:               NewNamespaceCache(),
+		recorder:              eventBroadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "mtq-controller"}),
 		podEvaluator:          core.NewPodEvaluator(nil, clock.RealClock{}),
 		limitedResources: []resourcequota.LimitedResource{
 			{
@@ -240,11 +248,10 @@ func (ctrl *ManagedQuotaController) execute(key string) error {
 		if err != nil {
 			return err
 		}
-		currBlockingRQList, err := ctrl.getCurrBlockingRQInNS(vmmrq, migartionNS, sourcePod, vmmrq.Spec.AdditionalMigrationResources)
+		currBlockingRQList, err := ctrl.getCurrBlockingRQInNS(vmmrq, migration, sourcePod, vmmrq.Spec.AdditionalMigrationResources)
 		if err != nil {
 			return err
 		}
-
 		vmmrq.Status.MigrationsToBlockingResourceQuotas[migrationName] = currBlockingRQList
 		oldBlockingRQList := vmmrq.Status.OriginalBlockingResourceQuotas
 		allBlockingRQsInNS, err := ctrl.getAllBlockingRQsInNS(vmmrq.Status.MigrationsToBlockingResourceQuotas, migartionNS)
@@ -601,8 +608,8 @@ func shouldUpdateVmmrq(currVmmrq *v1alpha12.VirtualMachineMigrationResourceQuota
 		!reflect.DeepEqual(currVmmrq.Status.MigrationsToBlockingResourceQuotas, prevVmmrq.Status.MigrationsToBlockingResourceQuotas)
 }
 
-func (ctrl *ManagedQuotaController) getCurrBlockingRQInNS(vmmrq *v1alpha12.VirtualMachineMigrationResourceQuota, ns string, podToCreate *v1.Pod, listToAdd v1.ResourceList) ([]string, error) {
-	currRQListObj, err := ctrl.resourceQuotaInformer.GetIndexer().ByIndex(cache.NamespaceIndex, ns)
+func (ctrl *ManagedQuotaController) getCurrBlockingRQInNS(vmmrq *v1alpha12.VirtualMachineMigrationResourceQuota, m *v1alpha1.VirtualMachineInstanceMigration, podToCreate *v1.Pod, listToAdd v1.ResourceList) ([]string, error) {
+	currRQListObj, err := ctrl.resourceQuotaInformer.GetIndexer().ByIndex(cache.NamespaceIndex, m.Namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -622,11 +629,13 @@ func (ctrl *ManagedQuotaController) getCurrBlockingRQInNS(vmmrq *v1alpha12.Virtu
 		_, errWithCurrRQ := admitPodToQuota(resourceQuotaCopy, podToCreateAttr, ctrl.podEvaluator, ctrl.limitedResources)
 		//checking if the additional resources in vmmRQ will unblock us
 		rqAfterResourcesAddition := addResourcesToRQ(*resourceQuotaCopy, &listToAdd)
-		_, errWithMofifiedRQ := admitPodToQuota(rqAfterResourcesAddition, podToCreateAttr, ctrl.podEvaluator, ctrl.limitedResources)
-		if errWithCurrRQ != nil && strings.Contains(errWithCurrRQ.Error(), "exceeded quota") && errWithMofifiedRQ == nil { //TODO:think about this logic so we won't be stock or let the user know
+		_, errWithModifiedRQ := admitPodToQuota(rqAfterResourcesAddition, podToCreateAttr, ctrl.podEvaluator, ctrl.limitedResources)
+		if errWithCurrRQ != nil && strings.Contains(errWithCurrRQ.Error(), "exceeded quota") && errWithModifiedRQ == nil {
 			currRQListItems = append(currRQListItems, (*resourceQuota).Name)
-		} else if errWithMofifiedRQ != nil && strings.Contains(errWithMofifiedRQ.Error(), "exceeded quota") {
-			return nil, errWithMofifiedRQ
+		} else if errWithModifiedRQ != nil && strings.Contains(errWithModifiedRQ.Error(), "exceeded quota") {
+			evtMsg := fmt.Sprintf("Warning: Currently VMMRQ: %v in namespace: %v doesn't have enough resoures to release blocked migration: %v", vmmrq.Name, m.Namespace, m.Name)
+			ctrl.recorder.Eventf(podToCreate, v1.EventTypeWarning, FailedToReleaseMigrationReason, evtMsg, errWithModifiedRQ.Error())
+			return nil, errWithModifiedRQ
 		}
 	}
 	return currRQListItems, nil

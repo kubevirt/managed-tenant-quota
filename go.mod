@@ -10,6 +10,7 @@ require (
 require (
 	github.com/emicklei/go-restful/v3 v3.9.0 // indirect
 	github.com/go-openapi/swag v0.22.3 // indirect
+	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/google/gnostic v0.5.7-v3refs // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
