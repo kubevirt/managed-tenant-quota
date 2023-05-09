@@ -203,21 +203,6 @@ func (ctrl *ManagedQuotaController) execute(key string) error {
 	if err != nil {
 		return err
 	}
-	var migration *v1alpha1.VirtualMachineInstanceMigration
-	var vmi *v1alpha1.VirtualMachineInstance
-	if migrationExists {
-		migration = migrationObj.(*v1alpha1.VirtualMachineInstanceMigration)
-		vmiObj, vmiExists, err := ctrl.vmiInformer.GetStore().GetByKey(fmt.Sprintf("%s/%s", migartionNS, migration.Spec.VMIName))
-		if err != nil {
-			return err
-		} else if !vmiExists { //vmi for migration doesn't exist
-			return fmt.Errorf("VMI doesn't exist for migration")
-		}
-		vmi = vmiObj.(*v1alpha1.VirtualMachineInstance)
-	} else {
-		return nil //todo: should remove migration from vmmrq if it was deleted
-	}
-
 	vmmrqObjsList, err := ctrl.vmmrqInformer.GetIndexer().ByIndex(cache.NamespaceIndex, migartionNS)
 	if err != nil {
 		return err
@@ -232,9 +217,23 @@ func (ctrl *ManagedQuotaController) execute(key string) error {
 	}
 	prevVmmrq := vmmrq.DeepCopy()
 
-	isBlockedMigration, err := ctrl.isBlockedMigration(vmi, migration)
-	if err != nil {
-		return err
+	var migration *v1alpha1.VirtualMachineInstanceMigration
+	var vmi *v1alpha1.VirtualMachineInstance
+	isBlockedMigration := false
+
+	if migrationExists {
+		migration = migrationObj.(*v1alpha1.VirtualMachineInstanceMigration)
+		vmiObj, vmiExists, err := ctrl.vmiInformer.GetStore().GetByKey(fmt.Sprintf("%s/%s", migartionNS, migration.Spec.VMIName))
+		if err != nil {
+			return err
+		} else if !vmiExists { //vmi for migration doesn't exist
+			return fmt.Errorf("VMI doesn't exist for migration")
+		}
+		vmi = vmiObj.(*v1alpha1.VirtualMachineInstance)
+		isBlockedMigration, err = ctrl.isBlockedMigration(vmi, migration)
+		if err != nil {
+			return err
+		}
 	}
 
 	if !isBlockedMigration { //todo: if the migration is done forget key
