@@ -184,7 +184,8 @@ func (ctrl *ManagedQuotaController) Execute() bool {
 	err := ctrl.execute(key.(string))
 	if err != nil {
 		log.Log.Reason(err).Infof("ManagedQuotaController: reenqueuing %v", key)
-		ctrl.migrationQueue.AddRateLimited(key) //TODO: Divide it to two types of errors one for immediate enqueue and one for rateLimited
+		//TODO: Divide it to two types of errors one for immediate enqueue and one for rateLimited
+		ctrl.migrationQueue.Add(key)
 	} else {
 		log.Log.Infof("ManagedQuotaController: processed obj: %v", key)
 		ctrl.migrationQueue.Forget(key)
@@ -214,7 +215,7 @@ func (ctrl *ManagedQuotaController) execute(key string) error {
 		}
 		vmi = vmiObj.(*v1alpha1.VirtualMachineInstance)
 	} else {
-		return nil
+		return nil //todo: should remove migration from vmmrq if it was deleted
 	}
 
 	vmmrqObjsList, err := ctrl.vmmrqInformer.GetIndexer().ByIndex(cache.NamespaceIndex, migartionNS)
