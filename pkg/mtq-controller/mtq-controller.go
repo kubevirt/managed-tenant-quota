@@ -676,6 +676,9 @@ func lockNamespace(ns string, cli kubecli.KubevirtClient) error {
 	lockingValidationWebHook := v13.ValidatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "lock." + ns + ".com",
+			Labels: map[string]string{
+				"mtq-webhook": "mtq-webhook",
+			},
 		},
 		Webhooks: []v13.ValidatingWebhook{getLockingValidatingWebhook(ns)},
 	}
