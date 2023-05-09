@@ -615,7 +615,7 @@ func shouldUpdateVmmrq(currVmmrq *v1alpha12.VirtualMachineMigrationResourceQuota
 		!reflect.DeepEqual(currVmmrq.Status.MigrationsToBlockingResourceQuotas, prevVmmrq.Status.MigrationsToBlockingResourceQuotas)
 }
 
-func (ctrl *ManagedQuotaController) getCurrBlockingRQInNS(vmmrq *v1alpha12.VirtualMachineMigrationResourceQuota, m *v1alpha1.VirtualMachineInstanceMigration, podToCreate *v1.Pod, listToAdd v1.ResourceList) ([]string, error) {
+func (ctrl *ManagedQuotaController) getCurrBlockingRQInNS(vmmrq *v1alpha12.VirtualMachineMigrationResourceQuota, m *v1alpha1.VirtualMachineInstanceMigration, podToCreate *v1.Pod, resourceListToAdd v1.ResourceList) ([]string, error) {
 	currRQListObj, err := ctrl.resourceQuotaInformer.GetIndexer().ByIndex(cache.NamespaceIndex, m.Namespace)
 	if err != nil {
 		return nil, err
@@ -628,14 +628,14 @@ func (ctrl *ManagedQuotaController) getCurrBlockingRQInNS(vmmrq *v1alpha12.Virtu
 
 	for _, obj := range currRQListObj {
 		resourceQuota := obj.(*v1.ResourceQuota)
-		if origRQNameAndSpec := getRQNameAndSpecIfExist(vmmrq.Status.OriginalBlockingResourceQuotas, resourceQuota.Name); origRQNameAndSpec != nil {
-			resourceQuota.Spec = origRQNameAndSpec.Spec
-		}
 		resourceQuotaCopy := resourceQuota.DeepCopy()
+		if origRQNameAndSpec := getRQNameAndSpecIfExist(vmmrq.Status.OriginalBlockingResourceQuotas, resourceQuota.Name); origRQNameAndSpec != nil {
+			resourceQuotaCopy.Spec = origRQNameAndSpec.Spec
+		}
 		//Checking if the resourceQuota is blocking us
 		_, errWithCurrRQ := admitPodToQuota(resourceQuotaCopy, podToCreateAttr, ctrl.podEvaluator, ctrl.limitedResources)
 		//checking if the additional resources in vmmRQ will unblock us
-		rqAfterResourcesAddition := addResourcesToRQ(*resourceQuotaCopy, &listToAdd)
+		rqAfterResourcesAddition := addResourcesToRQ(*resourceQuotaCopy, &resourceListToAdd)
 		_, errWithModifiedRQ := admitPodToQuota(rqAfterResourcesAddition, podToCreateAttr, ctrl.podEvaluator, ctrl.limitedResources)
 		if errWithCurrRQ != nil && strings.Contains(errWithCurrRQ.Error(), "exceeded quota") && errWithModifiedRQ == nil {
 			currRQListItems = append(currRQListItems, (*resourceQuota).Name)
