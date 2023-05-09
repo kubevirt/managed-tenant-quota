@@ -238,14 +238,8 @@ func (ctrl *ManagedQuotaController) execute(key string) error {
 	}
 
 	if !isBlockedMigration { //todo: if the migration is done forget key
-		rqListDeletedFromMap := vmmrq.Status.MigrationsToBlockingResourceQuotas[migrationName]
 		delete(vmmrq.Status.MigrationsToBlockingResourceQuotas, migrationName)
-		blockingRQsList := flatStringToStringMapNoDups(vmmrq.Status.MigrationsToBlockingResourceQuotas)
-		nonBlockingRQs := getNonBlockingRQ(rqListDeletedFromMap, blockingRQsList) //check which RQs don't block any other migration
-		vmmrq.Status.OriginalBlockingResourceQuotas = removeRQsFromBlockingRQList(vmmrq.Status.OriginalBlockingResourceQuotas, nonBlockingRQs)
-		log.Log.Reason(err).Infof(fmt.Sprintf("OriginalBlockingResourceQuotas  map now : %+v", vmmrq.Status.OriginalBlockingResourceQuotas))
 	} else if isBlockedMigration {
-		//todo: check if there is modified resourceQuota that will be stuck forever and if so release it
 		sourcePod, err := CurrentVMIPod(vmi, ctrl.podInformer)
 		if err != nil {
 			return err
@@ -253,13 +247,19 @@ func (ctrl *ManagedQuotaController) execute(key string) error {
 		currBlockingRQList, err := ctrl.getCurrBlockingRQInNS(vmmrq, migration, sourcePod, vmmrq.Spec.AdditionalMigrationResources)
 		if err != nil {
 			return err
+		} else if len(currBlockingRQList) == 0 {
+			delete(vmmrq.Status.MigrationsToBlockingResourceQuotas, migrationName)
+		} else {
+			vmmrq.Status.MigrationsToBlockingResourceQuotas[migrationName] = currBlockingRQList
 		}
-		vmmrq.Status.MigrationsToBlockingResourceQuotas[migrationName] = currBlockingRQList
-		oldBlockingRQList := vmmrq.Status.OriginalBlockingResourceQuotas
-		allBlockingRQsInNS, err := ctrl.getAllBlockingRQsInNS(vmmrq.Status.MigrationsToBlockingResourceQuotas, migartionNS)
-		finalBlockingRQList := newBlockingRQs(oldBlockingRQList, allBlockingRQsInNS)
-		vmmrq.Status.OriginalBlockingResourceQuotas = finalBlockingRQList
 	}
+
+	allBlockingRQsInNS, err := ctrl.getAllBlockingRQsInNS(vmmrq, migartionNS)
+	if err != nil {
+		return err
+	}
+
+	vmmrq.Status.OriginalBlockingResourceQuotas = allBlockingRQsInNS
 	rqListToRestore := ctrl.getRQListToRestore(vmmrq, prevVmmrq)
 	shouldLockNS := shouldLockNS(vmmrq)
 	var nsLocked bool
@@ -285,7 +285,7 @@ func (ctrl *ManagedQuotaController) execute(key string) error {
 		}
 		ctrl.nsCache.markLockStateLocked(migartionNS)
 	}
-	err = ctrl.restoreOriginalRQs(rqListToRestore, prevVmmrq.Status.OriginalBlockingResourceQuotas, migartionNS)
+	err = ctrl.restoreOriginalRQs(rqListToRestore, migartionNS, migrationName)
 	if err != nil {
 		return err
 	}
@@ -295,7 +295,8 @@ func (ctrl *ManagedQuotaController) execute(key string) error {
 			return err
 		}
 	}
-	err = ctrl.addResourcesToRQs(vmmrq.Status.OriginalBlockingResourceQuotas, &vmmrq.Spec.AdditionalMigrationResources, migartionNS)
+
+	err = ctrl.addResourcesToRQs(vmmrq, migartionNS)
 	if err != nil {
 		return err
 	}
@@ -311,15 +312,15 @@ func (ctrl *ManagedQuotaController) execute(key string) error {
 
 func (ctrl *ManagedQuotaController) getRQListToRestore(currVmmrq *v1alpha12.VirtualMachineMigrationResourceQuota, prevVmmrq *v1alpha12.VirtualMachineMigrationResourceQuota) []v1alpha12.ResourceQuotaNameAndSpec {
 	var rqToReduceList []v1alpha12.ResourceQuotaNameAndSpec
-	for _, rqInCurr := range prevVmmrq.Status.OriginalBlockingResourceQuotas {
+	for _, rqInPrev := range prevVmmrq.Status.OriginalBlockingResourceQuotas {
 		found := false
-		for _, rqInPrev := range currVmmrq.Status.OriginalBlockingResourceQuotas {
+		for _, rqInCurr := range currVmmrq.Status.OriginalBlockingResourceQuotas {
 			if rqInCurr.Name == rqInPrev.Name {
 				found = true
 			}
 		}
 		if !found {
-			rqToReduceList = append(rqToReduceList, rqInCurr)
+			rqToReduceList = append(rqToReduceList, rqInPrev)
 		}
 	}
 	return rqToReduceList
@@ -344,21 +345,25 @@ func (ctrl *ManagedQuotaController) isBlockedMigration(vmi *v1alpha1.VirtualMach
 	}
 	return false, nil
 }
-func (ctrl *ManagedQuotaController) getAllBlockingRQsInNS(migrationsToBlockingRQMap map[string][]string, ns string) ([]v1alpha12.ResourceQuotaNameAndSpec, error) {
+func (ctrl *ManagedQuotaController) getAllBlockingRQsInNS(vmmrq *v1alpha12.VirtualMachineMigrationResourceQuota, ns string) ([]v1alpha12.ResourceQuotaNameAndSpec, error) {
 	var blockingRQInNS []v1alpha12.ResourceQuotaNameAndSpec
-	blockingRQlist := flatStringToStringMapNoDups(migrationsToBlockingRQMap)
+	blockingRQlist := flatStringToStringMapNoDups(vmmrq.Status.MigrationsToBlockingResourceQuotas)
 	currRQListObj, err := ctrl.resourceQuotaInformer.GetIndexer().ByIndex(cache.NamespaceIndex, ns)
 	if err != nil {
 		return nil, err
 	}
 	for _, blockingRQ := range blockingRQlist {
+		if origRQNameAndSpec := getRQNameAndSpecIfExist(vmmrq.Status.OriginalBlockingResourceQuotas, blockingRQ); origRQNameAndSpec != nil {
+			blockingRQInNS = append(blockingRQInNS, *origRQNameAndSpec)
+			continue
+		}
 		for _, obj := range currRQListObj {
 			rqInNS := obj.(*v1.ResourceQuota)
-			rqNameAndSpec := v1alpha12.ResourceQuotaNameAndSpec{
-				Name: rqInNS.Name,
-				Spec: rqInNS.Spec,
-			}
 			if rqInNS.Name == blockingRQ {
+				rqNameAndSpec := v1alpha12.ResourceQuotaNameAndSpec{
+					Name: rqInNS.Name,
+					Spec: rqInNS.Spec,
+				}
 				blockingRQInNS = append(blockingRQInNS, rqNameAndSpec)
 			}
 		}
@@ -534,7 +539,7 @@ func flatStringToStringMapNoDups(m map[string][]string) []string {
 	return flatMapNoDups
 }
 
-func (ctrl *ManagedQuotaController) restoreOriginalRQs(rqSpecAndNameListToRestore []v1alpha12.ResourceQuotaNameAndSpec, originalRQList []v1alpha12.ResourceQuotaNameAndSpec, namespace string) error {
+func (ctrl *ManagedQuotaController) restoreOriginalRQs(rqSpecAndNameListToRestore []v1alpha12.ResourceQuotaNameAndSpec, namespace string, migrationName string) error {
 	if len(rqSpecAndNameListToRestore) == 0 {
 		return nil
 	}
@@ -550,7 +555,6 @@ func (ctrl *ManagedQuotaController) restoreOriginalRQs(rqSpecAndNameListToRestor
 			log.Log.Infof("ManagedQuotaController: Failed to extract key from resourceQuota.")
 			return err
 		}
-		log.Log.Infof(fmt.Sprintf("ManagedQuotaController: updating: %v", quotaNameAndSpec.Name))
 
 		rqToModifyObj, exists, err := ctrl.resourceQuotaInformer.GetStore().GetByKey(key)
 		if err != nil {
@@ -559,11 +563,10 @@ func (ctrl *ManagedQuotaController) restoreOriginalRQs(rqSpecAndNameListToRestor
 
 		if exists {
 			rqToModify := rqToModifyObj.(*v1.ResourceQuota)
-			origRQ := getFromListByName(originalRQList, rqToModify.Name)
-			if reflect.DeepEqual(rqToModify.Spec.Hard, origRQ.Spec.Hard) {
+			if reflect.DeepEqual(rqToModify.Spec.Hard, quotaNameAndSpec.Spec.Hard) {
 				continue //already restored
 			}
-			rqToModify.Spec.Hard = origRQ.Spec.Hard
+			rqToModify.Spec.Hard = quotaNameAndSpec.Spec.Hard
 			_, err = ctrl.virtCli.CoreV1().ResourceQuotas(rqToModify.Namespace).Update(context.Background(), rqToModify, metav1.UpdateOptions{})
 			if err != nil {
 				return err
@@ -573,11 +576,8 @@ func (ctrl *ManagedQuotaController) restoreOriginalRQs(rqSpecAndNameListToRestor
 	return nil
 }
 
-func (ctrl *ManagedQuotaController) addResourcesToRQs(rqNameAndSpeclist []v1alpha12.ResourceQuotaNameAndSpec, additionalMigrationResources *v1.ResourceList, namespace string) error {
-	if len(rqNameAndSpeclist) == 0 {
-		return nil
-	}
-	for _, quotaNameAndSpec := range rqNameAndSpeclist {
+func (ctrl *ManagedQuotaController) addResourcesToRQs(currVmmrq *v1alpha12.VirtualMachineMigrationResourceQuota, namespace string) error {
+	for _, quotaNameAndSpec := range currVmmrq.Status.OriginalBlockingResourceQuotas {
 		key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(
 			&v1.ResourceQuota{
 				ObjectMeta: metav1.ObjectMeta{
@@ -601,7 +601,7 @@ func (ctrl *ManagedQuotaController) addResourcesToRQs(rqNameAndSpeclist []v1alph
 			if !reflect.DeepEqual(rqToModify.Spec.Hard, quotaNameAndSpec.Spec.Hard) {
 				continue //already modified
 			}
-			rqToModify.Spec.Hard = addResourcesToRQ(*rqToModify, additionalMigrationResources).Spec.Hard
+			rqToModify.Spec.Hard = addResourcesToRQ(*rqToModify, &currVmmrq.Spec.AdditionalMigrationResources).Spec.Hard
 			_, err = ctrl.virtCli.CoreV1().ResourceQuotas(rqToModify.Namespace).Update(context.Background(), rqToModify, metav1.UpdateOptions{})
 			if err != nil {
 				return err
@@ -643,30 +643,10 @@ func (ctrl *ManagedQuotaController) getCurrBlockingRQInNS(vmmrq *v1alpha12.Virtu
 		} else if errWithModifiedRQ != nil && strings.Contains(errWithModifiedRQ.Error(), "exceeded quota") {
 			evtMsg := fmt.Sprintf("Warning: Currently VMMRQ: %v in namespace: %v doesn't have enough resoures to release blocked migration: %v", vmmrq.Name, m.Namespace, m.Name)
 			ctrl.recorder.Eventf(podToCreate, v1.EventTypeWarning, FailedToReleaseMigrationReason, evtMsg, errWithModifiedRQ.Error())
-			return nil, errWithModifiedRQ
+			return []string{}, nil
 		}
 	}
 	return currRQListItems, nil
-}
-
-func newBlockingRQs(oldBlockingRQList, migrationBlockingRQList []v1alpha12.ResourceQuotaNameAndSpec) []v1alpha12.ResourceQuotaNameAndSpec {
-	var newBlockingRQList []v1alpha12.ResourceQuotaNameAndSpec
-	for _, modifiedRQ := range oldBlockingRQList {
-		newBlockingRQList = append(newBlockingRQList, modifiedRQ)
-	}
-	// Add new ResourceQuotas from migrationBlockingRQList to newRQList
-	for _, migrationBlockingRQ := range migrationBlockingRQList {
-		found := false
-		for _, oldBlockingRQ := range oldBlockingRQList {
-			if oldBlockingRQ.Name == migrationBlockingRQ.Name {
-				found = true
-			}
-		}
-		if !found {
-			newBlockingRQList = append(newBlockingRQList, migrationBlockingRQ)
-		}
-	}
-	return newBlockingRQList
 }
 
 func addResourcesToRQ(rq v1.ResourceQuota, rl *v1.ResourceList) *v1.ResourceQuota {
@@ -690,49 +670,6 @@ func addResourcesToRQ(rq v1.ResourceQuota, rl *v1.ResourceList) *v1.ResourceQuot
 func resourceNamesMatch(rqResourceName v1.ResourceName, vmmrqResourceName v1.ResourceName) bool {
 	return (rqResourceName == v1.ResourceRequestsMemory && vmmrqResourceName == v1.ResourceMemory) ||
 		(rqResourceName == v1.ResourceRequestsCPU && vmmrqResourceName == v1.ResourceCPU)
-}
-
-func getFromListByName(rql []v1alpha12.ResourceQuotaNameAndSpec, name string) *v1alpha12.ResourceQuotaNameAndSpec {
-	for _, rq := range rql {
-		if rq.Name == name {
-			return &rq
-		}
-	}
-	return nil
-}
-
-func getNonBlockingRQ(RQListRemoved []string, blockingRQList []string) []string {
-	noLongerBlockingRQS := make([]string, 0)
-	for _, rqRemoved := range RQListRemoved {
-		found := false
-		for _, blockingRQ := range blockingRQList {
-			if rqRemoved == blockingRQ {
-				found = true
-				break
-			}
-		}
-		if !found {
-			noLongerBlockingRQS = append(noLongerBlockingRQS, rqRemoved)
-		}
-	}
-	return noLongerBlockingRQS
-}
-
-func removeRQsFromBlockingRQList(blockingRQsList []v1alpha12.ResourceQuotaNameAndSpec, rqListToRemove []string) []v1alpha12.ResourceQuotaNameAndSpec {
-	var newBlockingRQsList []v1alpha12.ResourceQuotaNameAndSpec
-	for _, rq := range blockingRQsList {
-		found := false
-		for _, rqToRemove := range rqListToRemove {
-			if rq.Name == rqToRemove {
-				found = true
-			}
-		}
-		if !found {
-			newBlockingRQsList = append(newBlockingRQsList, rq)
-		}
-	}
-
-	return newBlockingRQsList
 }
 
 func lockNamespace(ns string, cli kubecli.KubevirtClient) error {
