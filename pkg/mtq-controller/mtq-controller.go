@@ -31,6 +31,7 @@ import (
 	"kubevirt.io/client-go/log"
 	corev1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	v1alpha12 "kubevirt.io/managed-tenant-quota/pkg/apis/core/v1alpha1"
+	v1alpha13 "kubevirt.io/managed-tenant-quota/pkg/generated/clientset/versioned/typed/core/v1alpha1"
 	"kubevirt.io/managed-tenant-quota/pkg/util"
 	"os"
 	"reflect"
@@ -53,26 +54,26 @@ type ManagedQuotaController struct {
 	vmmrqInformer         cache.SharedIndexInformer
 	vmiInformer           cache.SharedIndexInformer
 	migrationQueue        workqueue.RateLimitingInterface
-	vmmrqStatusUpdater    *util.VMMRQStatusUpdater
 	virtCli               kubecli.KubevirtClient
+	mtqCli                v1alpha13.VirtualMachineMigrationResourceQuotaV1alpha1Client
 	recorder              record.EventRecorder
 	podEvaluator          v12.Evaluator
 	limitedResources      []resourcequota.LimitedResource
 }
 
-func NewManagedQuotaController(VMMRQStatusUpdater *util.VMMRQStatusUpdater, cli kubecli.KubevirtClient, migrationInformer cache.SharedIndexInformer, podInformer cache.SharedIndexInformer, resourceQuotaInformer cache.SharedIndexInformer, vmmrqInformer cache.SharedIndexInformer, vmiInformer cache.SharedIndexInformer) *ManagedQuotaController {
+func NewManagedQuotaController(virtCli kubecli.KubevirtClient, mtqCli v1alpha13.VirtualMachineMigrationResourceQuotaV1alpha1Client, migrationInformer cache.SharedIndexInformer, podInformer cache.SharedIndexInformer, resourceQuotaInformer cache.SharedIndexInformer, vmmrqInformer cache.SharedIndexInformer, vmiInformer cache.SharedIndexInformer) *ManagedQuotaController {
 	eventBroadcaster := record.NewBroadcaster()
-	eventBroadcaster.StartRecordingToSink(&v14.EventSinkImpl{Interface: cli.CoreV1().Events(v1.NamespaceAll)})
+	eventBroadcaster.StartRecordingToSink(&v14.EventSinkImpl{Interface: virtCli.CoreV1().Events(v1.NamespaceAll)})
 
 	ctrl := ManagedQuotaController{
-		virtCli:               cli,
+		virtCli:               virtCli,
+		mtqCli:                mtqCli,
 		migrationInformer:     migrationInformer,
 		podInformer:           podInformer,
 		resourceQuotaInformer: resourceQuotaInformer,
 		vmmrqInformer:         vmmrqInformer,
 		vmiInformer:           vmiInformer,
 		migrationQueue:        workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "migration-queue"),
-		vmmrqStatusUpdater:    VMMRQStatusUpdater,
 		internalLock:          &sync.Mutex{},
 		nsCache:               NewNamespaceCache(),
 		recorder:              eventBroadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "mtq-controller"}),
@@ -288,7 +289,7 @@ func (ctrl *ManagedQuotaController) execute(key string) error {
 		return err
 	}
 	if shouldUpdateVmmrq(vmmrq, prevVmmrq) {
-		err := ctrl.vmmrqStatusUpdater.UpdateStatus(vmmrq)
+		_, err := ctrl.mtqCli.VirtualMachineMigrationResourceQuotas(migartionNS).UpdateStatus(context.Background(), vmmrq, metav1.UpdateOptions{})
 		if err != nil {
 			return err
 		}
@@ -402,9 +403,7 @@ func Run(threadiness int, stop <-chan struct{}) error {
 	go virtualMachineMigrationResourceQuotaInformer.Run(stop)
 	go vmiInformer.Run(stop)
 
-	VMMRQStatusUpdater := util.NewVMMRQStatusUpdater(virtCli, mtqCli)
-
-	ctrl := NewManagedQuotaController(VMMRQStatusUpdater, virtCli, migrationInformer, podInformer, resourceQuotaInformer, virtualMachineMigrationResourceQuotaInformer, vmiInformer)
+	ctrl := NewManagedQuotaController(virtCli, mtqCli, migrationInformer, podInformer, resourceQuotaInformer, virtualMachineMigrationResourceQuotaInformer, vmiInformer)
 
 	log.Log.Info("Starting Managed Quota controller")
 	defer log.Log.Info("Shutting down Managed Quota controller")

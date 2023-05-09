@@ -4,3 +4,5 @@ mtq_controller
 tmp
 pod.yaml
 create5vmis
+delete5vmis
+controller-cp.go
