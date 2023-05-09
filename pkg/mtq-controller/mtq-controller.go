@@ -240,8 +240,8 @@ func (ctrl *ManagedQuotaController) execute(key string) error {
 	if !isBlockedMigration { //todo: if the migration is done forget key
 		rqListDeletedFromMap := vmmrq.Status.MigrationsToBlockingResourceQuotas[migrationName]
 		delete(vmmrq.Status.MigrationsToBlockingResourceQuotas, migrationName)
-		blockingRQsList := getAllBlockingRQsInNS(vmmrq.Status.MigrationsToBlockingResourceQuotas)
-		nonBlockingRQs := getNonBlockingRQ(rqListDeletedFromMap, *blockingRQsList) //check which RQs don't block any other migration
+		blockingRQsList := flatStringToStringMapNoDups(vmmrq.Status.MigrationsToBlockingResourceQuotas)
+		nonBlockingRQs := getNonBlockingRQ(rqListDeletedFromMap, blockingRQsList) //check which RQs don't block any other migration
 		vmmrq.Status.OriginalBlockingResourceQuotas = removeRQsFromBlockingRQList(vmmrq.Status.OriginalBlockingResourceQuotas, nonBlockingRQs)
 		log.Log.Reason(err).Infof(fmt.Sprintf("OriginalBlockingResourceQuotas  map now : %+v", vmmrq.Status.OriginalBlockingResourceQuotas))
 	} else if isBlockedMigration {
@@ -346,12 +346,12 @@ func (ctrl *ManagedQuotaController) isBlockedMigration(vmi *v1alpha1.VirtualMach
 }
 func (ctrl *ManagedQuotaController) getAllBlockingRQsInNS(migrationsToBlockingRQMap map[string][]string, ns string) ([]v1alpha12.ResourceQuotaNameAndSpec, error) {
 	var blockingRQInNS []v1alpha12.ResourceQuotaNameAndSpec
-	blockingRQlist := getAllBlockingRQsInNS(migrationsToBlockingRQMap)
+	blockingRQlist := flatStringToStringMapNoDups(migrationsToBlockingRQMap)
 	currRQListObj, err := ctrl.resourceQuotaInformer.GetIndexer().ByIndex(cache.NamespaceIndex, ns)
 	if err != nil {
 		return nil, err
 	}
-	for _, blockingRQ := range *blockingRQlist {
+	for _, blockingRQ := range blockingRQlist {
 		for _, obj := range currRQListObj {
 			rqInNS := obj.(*v1.ResourceQuota)
 			rqNameAndSpec := v1alpha12.ResourceQuotaNameAndSpec{
@@ -518,12 +518,20 @@ func shouldLockNS(vmmrq *v1alpha12.VirtualMachineMigrationResourceQuota) bool {
 	return len(vmmrq.Status.OriginalBlockingResourceQuotas) > 0
 }
 
-func getAllBlockingRQsInNS(migrationsToBlockingRQs map[string][]string) *[]string {
-	var blockingRQs []string
-	for _, blockingRQ := range migrationsToBlockingRQs {
-		blockingRQs = append(blockingRQs, blockingRQ...)
+func flatStringToStringMapNoDups(m map[string][]string) []string {
+	stringFound := make(map[string]bool)
+	for _, s := range m {
+		for _, rq := range s {
+			stringFound[rq] = true
+		}
 	}
-	return &blockingRQs
+
+	flatMapNoDups := make([]string, 0, len(stringFound))
+	for rq := range stringFound {
+		flatMapNoDups = append(flatMapNoDups, rq)
+	}
+
+	return flatMapNoDups
 }
 
 func (ctrl *ManagedQuotaController) restoreOriginalRQs(rqSpecAndNameListToRestore []v1alpha12.ResourceQuotaNameAndSpec, originalRQList []v1alpha12.ResourceQuotaNameAndSpec, namespace string) error {
