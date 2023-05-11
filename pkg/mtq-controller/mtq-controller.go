@@ -45,6 +45,14 @@ const (
 	VirtualMachineInstanceMigrationRejectedByResourceQuota v1alpha1.VirtualMachineInstanceMigrationConditionType = "migrationRejectedByResourceQuota"
 )
 
+type enqueueState string
+
+const (
+	Immediate enqueueState = "Immediate"
+	Forget    enqueueState = "Forget"
+	BackOff   enqueueState = "BackOff"
+)
+
 type ManagedQuotaController struct {
 	nsCache               *NamespaceCache
 	internalLock          *sync.Mutex
@@ -181,34 +189,37 @@ func (ctrl *ManagedQuotaController) Execute() bool {
 	}
 	defer ctrl.migrationQueue.Done(key)
 
-	err := ctrl.execute(key.(string))
+	err, enqueueState := ctrl.execute(key.(string))
 	if err != nil {
-		log.Log.Reason(err).Infof("ManagedQuotaController: reenqueuing %v", key)
-		//TODO: Divide it to two types of errors one for immediate enqueue and one for rateLimited
-		ctrl.migrationQueue.Add(key)
-	} else {
-		log.Log.Infof("ManagedQuotaController: processed obj: %v", key)
+		log.Log.Reason(err).Infof(fmt.Sprintf("ManagedQuotaController: Error with key: %v", key))
+	}
+	switch enqueueState {
+	case BackOff:
+		ctrl.migrationQueue.AddRateLimited(key)
+	case Forget:
 		ctrl.migrationQueue.Forget(key)
+	case Immediate:
+		ctrl.migrationQueue.Add(key)
 	}
 
 	return true
 }
 
-func (ctrl *ManagedQuotaController) execute(key string) error {
+func (ctrl *ManagedQuotaController) execute(key string) (error, enqueueState) {
 	migrationObj, migrationExists, err := ctrl.migrationInformer.GetStore().GetByKey(key)
 	if err != nil {
-		return err
+		return err, BackOff
 	}
 	migartionNS, migrationName, err := parseKey(key)
 	if err != nil {
-		return err
+		return err, BackOff
 	}
 	vmmrqObjsList, err := ctrl.vmmrqInformer.GetIndexer().ByIndex(cache.NamespaceIndex, migartionNS)
 	if err != nil {
-		return err
+		return err, BackOff
 	}
 	if len(vmmrqObjsList) != 1 {
-		return fmt.Errorf("there should be 1 virtualMachineMigrationResourceQuota in %v namespace", migartionNS)
+		return fmt.Errorf("there should be 1 virtualMachineMigrationResourceQuota in %v namespace", migartionNS), BackOff
 	}
 
 	vmmrq := vmmrqObjsList[0].(*v1alpha12.VirtualMachineMigrationResourceQuota)
@@ -225,27 +236,29 @@ func (ctrl *ManagedQuotaController) execute(key string) error {
 		migration = migrationObj.(*v1alpha1.VirtualMachineInstanceMigration)
 		vmiObj, vmiExists, err := ctrl.vmiInformer.GetStore().GetByKey(fmt.Sprintf("%s/%s", migartionNS, migration.Spec.VMIName))
 		if err != nil {
-			return err
+			return err, BackOff
 		} else if !vmiExists { //vmi for migration doesn't exist
-			return fmt.Errorf("VMI doesn't exist for migration")
+			return fmt.Errorf("VMI doesn't exist for migration"), BackOff
 		}
 		vmi = vmiObj.(*v1alpha1.VirtualMachineInstance)
 		isBlockedMigration, err = ctrl.isBlockedMigration(vmi, migration)
 		if err != nil {
-			return err
+			return err, BackOff
 		}
 	}
 
-	if !isBlockedMigration { //todo: if the migration is done forget key
+	finalEnqueueState := Forget
+	if !isBlockedMigration {
 		delete(vmmrq.Status.MigrationsToBlockingResourceQuotas, migrationName)
 	} else if isBlockedMigration {
+		finalEnqueueState = Immediate
 		sourcePod, err := CurrentVMIPod(vmi, ctrl.podInformer)
 		if err != nil {
-			return err
+			return err, Immediate
 		}
 		currBlockingRQList, err := ctrl.getCurrBlockingRQInNS(vmmrq, migration, sourcePod, vmmrq.Spec.AdditionalMigrationResources)
 		if err != nil {
-			return err
+			return err, Immediate
 		} else if len(currBlockingRQList) == 0 {
 			delete(vmmrq.Status.MigrationsToBlockingResourceQuotas, migrationName)
 		} else {
@@ -255,7 +268,7 @@ func (ctrl *ManagedQuotaController) execute(key string) error {
 
 	allBlockingRQsInNS, err := ctrl.getAllBlockingRQsInNS(vmmrq, migartionNS)
 	if err != nil {
-		return err
+		return err, Immediate
 	}
 
 	vmmrq.Status.OriginalBlockingResourceQuotas = allBlockingRQsInNS
@@ -274,39 +287,39 @@ func (ctrl *ManagedQuotaController) execute(key string) error {
 	case Unknown: //expensive api call
 		nsLocked, err = namespaceLocked(migartionNS, ctrl.virtCli)
 		if err != nil {
-			return err
+			return err, Immediate
 		}
 	}
 	if shouldLockNS && !nsLocked {
 		err := lockNamespace(migartionNS, ctrl.virtCli)
 		if err != nil {
-			return err
+			return err, Immediate
 		}
 		ctrl.nsCache.markLockStateLocked(migartionNS)
 	}
 	err = ctrl.restoreOriginalRQs(rqListToRestore, migartionNS, migrationName)
 	if err != nil {
-		return err
+		return err, Immediate
 	}
 	if shouldUpdateVmmrq(vmmrq, prevVmmrq) {
 		_, err := ctrl.mtqCli.VirtualMachineMigrationResourceQuotas(migartionNS).UpdateStatus(context.Background(), vmmrq, metav1.UpdateOptions{})
 		if err != nil {
-			return err
+			return err, Immediate
 		}
 	}
 
 	err = ctrl.addResourcesToRQs(vmmrq, migartionNS)
 	if err != nil {
-		return err
+		return err, Immediate
 	}
 	if !shouldLockNS && nsLocked {
 		err := unlockNamespace(migartionNS, ctrl.virtCli)
 		if err != nil {
-			return err
+			return err, Immediate
 		}
 		ctrl.nsCache.markLockStateUnlocked(migartionNS)
 	}
-	return nil //todo requeue migration
+	return nil, finalEnqueueState
 }
 
 func (ctrl *ManagedQuotaController) getRQListToRestore(currVmmrq *v1alpha12.VirtualMachineMigrationResourceQuota, prevVmmrq *v1alpha12.VirtualMachineMigrationResourceQuota) []v1alpha12.ResourceQuotaNameAndSpec {
@@ -588,7 +601,6 @@ func (ctrl *ManagedQuotaController) addResourcesToRQs(currVmmrq *v1alpha12.Virtu
 			log.Log.Infof("ManagedQuotaController: Failed to extract key from resourceQuota.")
 			return err
 		}
-		log.Log.Infof(fmt.Sprintf("ManagedQuotaController: updating: %v", quotaNameAndSpec.Name))
 
 		rqToModifyObj, exists, err := ctrl.resourceQuotaInformer.GetStore().GetByKey(key)
 		if err != nil {
