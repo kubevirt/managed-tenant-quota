@@ -216,15 +216,15 @@ func (ctrl *ManagedQuotaController) execute(key string) (error, enqueueState) {
 	}
 	ctrl.internalLock.Lock() //Todo: this locking should be done per namespace and not for all namespaces.
 	defer ctrl.internalLock.Unlock()
-	vmmrqObjsList, err := ctrl.vmmrqInformer.GetIndexer().ByIndex(cache.NamespaceIndex, migartionNS) //todo: maybe we shouldn't use informer here maybe cache and get
+	vmmrqObjsList, err := ctrl.mtqCli.VirtualMachineMigrationResourceQuotas(migartionNS).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return err, BackOff
 	}
-	if len(vmmrqObjsList) != 1 {
+	if len(vmmrqObjsList.Items) != 1 {
 		return fmt.Errorf("there should be 1 virtualMachineMigrationResourceQuota in %v namespace", migartionNS), BackOff
 	}
 
-	vmmrq := vmmrqObjsList[0].(*v1alpha12.VirtualMachineMigrationResourceQuota)
+	vmmrq := &vmmrqObjsList.Items[0]
 	if vmmrq.Status.MigrationsToBlockingResourceQuotas == nil {
 		vmmrq.Status.MigrationsToBlockingResourceQuotas = make(map[string][]string)
 	}
