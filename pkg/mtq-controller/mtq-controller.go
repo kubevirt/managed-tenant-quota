@@ -216,7 +216,7 @@ func (ctrl *ManagedQuotaController) execute(key string) (error, enqueueState) {
 	}
 	ctrl.internalLock.Lock() //Todo: this locking should be done per namespace and not for all namespaces.
 	defer ctrl.internalLock.Unlock()
-	vmmrqObjsList, err := ctrl.vmmrqInformer.GetIndexer().ByIndex(cache.NamespaceIndex, migartionNS) //todo: maybe we shouldn't use informer here
+	vmmrqObjsList, err := ctrl.vmmrqInformer.GetIndexer().ByIndex(cache.NamespaceIndex, migartionNS) //todo: maybe we shouldn't use informer here maybe cache and get
 	if err != nil {
 		return err, BackOff
 	}
@@ -574,7 +574,8 @@ func (ctrl *ManagedQuotaController) restoreOriginalRQs(rqSpecAndNameListToRestor
 
 		if exists {
 			rqToModify := rqToModifyObj.(*v1.ResourceQuota)
-			if reflect.DeepEqual(rqToModify.Spec.Hard, quotaNameAndSpec.Spec.Hard) {
+			if quotaNameAndSpec.Spec.Hard[v1.ResourceRequestsMemory] == rqToModify.Spec.Hard[v1.ResourceRequestsMemory] &&
+				quotaNameAndSpec.Spec.Hard[v1.ResourceRequestsCPU] == rqToModify.Spec.Hard[v1.ResourceRequestsCPU] { //todo check if there are more resources
 				continue //already restored
 			}
 			rqToModify.Spec.Hard = quotaNameAndSpec.Spec.Hard
@@ -608,7 +609,8 @@ func (ctrl *ManagedQuotaController) addResourcesToRQs(currVmmrq *v1alpha12.Virtu
 
 		if exists {
 			rqToModify := rqToModifyObj.(*v1.ResourceQuota)
-			if !reflect.DeepEqual(rqToModify.Spec.Hard, quotaNameAndSpec.Spec.Hard) {
+			if quotaNameAndSpec.Spec.Hard[v1.ResourceRequestsMemory] != rqToModify.Spec.Hard[v1.ResourceRequestsMemory] ||
+				quotaNameAndSpec.Spec.Hard[v1.ResourceRequestsCPU] != rqToModify.Spec.Hard[v1.ResourceRequestsCPU] { //todo: check if we need more resources
 				continue //already modified
 			}
 			rqToModify.Spec.Hard = addResourcesToRQ(*rqToModify, &currVmmrq.Spec.AdditionalMigrationResources).Spec.Hard
@@ -642,6 +644,7 @@ func (ctrl *ManagedQuotaController) getCurrBlockingRQInNS(vmmrq *v1alpha12.Virtu
 		resourceQuotaCopy := resourceQuota.DeepCopy()
 		if origRQNameAndSpec := getRQNameAndSpecIfExist(vmmrq.Status.OriginalBlockingResourceQuotas, resourceQuota.Name); origRQNameAndSpec != nil {
 			resourceQuotaCopy.Spec = origRQNameAndSpec.Spec
+			resourceQuotaCopy.Status.Hard = origRQNameAndSpec.Spec.Hard
 		}
 		//Checking if the resourceQuota is blocking us
 		_, errWithCurrRQ := admitPodToQuota(resourceQuotaCopy, podToCreateAttr, ctrl.podEvaluator, ctrl.limitedResources)
@@ -664,6 +667,10 @@ func addResourcesToRQ(rq v1.ResourceQuota, rl *v1.ResourceList) *v1.ResourceQuot
 		Spec: v1.ResourceQuotaSpec{
 			Hard: rq.Spec.Hard,
 		},
+		Status: v1.ResourceQuotaStatus{
+			Hard: rq.Spec.Hard,
+			Used: rq.Status.Used,
+		},
 	}
 	for rqResourceName, _ := range newRQ.Spec.Hard {
 		for vmmrqResourceName, quantityToAdd := range *rl {
@@ -671,6 +678,7 @@ func addResourcesToRQ(rq v1.ResourceQuota, rl *v1.ResourceList) *v1.ResourceQuot
 				quantity := newRQ.Spec.Hard[rqResourceName]
 				quantity.Add(quantityToAdd)
 				newRQ.Spec.Hard[rqResourceName] = quantity
+				newRQ.Status.Hard[rqResourceName] = quantity
 			}
 		}
 	}
