@@ -834,7 +834,8 @@ func parseKey(key string) (string, string, error) {
 func getRQNameAndSpecIfExist(blockingRQsList []v1alpha12.ResourceQuotaNameAndSpec, name string) *v1alpha12.ResourceQuotaNameAndSpec {
 	for _, rq := range blockingRQsList {
 		if rq.Name == name {
-			return &rq
+			// addResourcesToRQ func modify resourceList within vmmrq.Status.OriginalBlockingResourceQuotas so we must use DeepCopy
+			return rq.DeepCopy()
 		}
 	}
 	return nil
