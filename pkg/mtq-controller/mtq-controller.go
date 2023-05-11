@@ -214,7 +214,9 @@ func (ctrl *ManagedQuotaController) execute(key string) (error, enqueueState) {
 	if err != nil {
 		return err, BackOff
 	}
-	vmmrqObjsList, err := ctrl.vmmrqInformer.GetIndexer().ByIndex(cache.NamespaceIndex, migartionNS)
+	ctrl.internalLock.Lock() //Todo: this locking should be done per namespace and not for all namespaces.
+	defer ctrl.internalLock.Unlock()
+	vmmrqObjsList, err := ctrl.vmmrqInformer.GetIndexer().ByIndex(cache.NamespaceIndex, migartionNS) //todo: maybe we shouldn't use informer here
 	if err != nil {
 		return err, BackOff
 	}
@@ -276,9 +278,6 @@ func (ctrl *ManagedQuotaController) execute(key string) (error, enqueueState) {
 	shouldLockNS := shouldLockNS(vmmrq)
 	var nsLocked bool
 
-	ctrl.internalLock.Lock()
-	defer ctrl.internalLock.Unlock()
-
 	switch ctrl.nsCache.GetLockState(migartionNS) {
 	case Locked:
 		nsLocked = true
@@ -297,7 +296,7 @@ func (ctrl *ManagedQuotaController) execute(key string) (error, enqueueState) {
 		}
 		ctrl.nsCache.markLockStateLocked(migartionNS)
 	}
-	err = ctrl.restoreOriginalRQs(rqListToRestore, migartionNS, migrationName)
+	err = ctrl.restoreOriginalRQs(rqListToRestore, migartionNS)
 	if err != nil {
 		return err, Immediate
 	}
@@ -551,7 +550,7 @@ func flatStringToStringMapNoDups(m map[string][]string) []string {
 	return flatMapNoDups
 }
 
-func (ctrl *ManagedQuotaController) restoreOriginalRQs(rqSpecAndNameListToRestore []v1alpha12.ResourceQuotaNameAndSpec, namespace string, migrationName string) error {
+func (ctrl *ManagedQuotaController) restoreOriginalRQs(rqSpecAndNameListToRestore []v1alpha12.ResourceQuotaNameAndSpec, namespace string) error {
 	if len(rqSpecAndNameListToRestore) == 0 {
 		return nil
 	}
