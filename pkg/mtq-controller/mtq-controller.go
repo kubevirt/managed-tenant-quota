@@ -9,6 +9,7 @@ import (
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
@@ -230,6 +231,13 @@ func (ctrl *ManagedQuotaController) execute(key string) (error, enqueueState) {
 	if vmmrq.Status.MigrationsToBlockingResourceQuotas == nil {
 		vmmrq.Status.MigrationsToBlockingResourceQuotas = make(map[string][]string)
 	}
+	if !areResourceMapsEqual(vmmrq.Spec.AdditionalMigrationResources, vmmrq.Status.AdditionalMigrationResources) {
+		vmmrq.Status.AdditionalMigrationResources = vmmrq.Spec.AdditionalMigrationResources
+		_, err := ctrl.mtqCli.VirtualMachineMigrationResourceQuotas(migartionNS).UpdateStatus(context.Background(), vmmrq, metav1.UpdateOptions{})
+		if err != nil {
+			return err, Immediate
+		}
+	}
 	prevVmmrq := vmmrq.DeepCopy()
 
 	var migration *v1alpha1.VirtualMachineInstanceMigration
@@ -260,7 +268,7 @@ func (ctrl *ManagedQuotaController) execute(key string) (error, enqueueState) {
 		if err != nil {
 			return err, Immediate
 		}
-		currBlockingRQList, err := ctrl.getCurrBlockingRQInNS(vmmrq, migration, sourcePod, vmmrq.Spec.AdditionalMigrationResources)
+		currBlockingRQList, err := ctrl.getCurrBlockingRQInNS(vmmrq, migration, sourcePod, vmmrq.Status.AdditionalMigrationResources)
 		if err != nil {
 			return err, Immediate
 		} else if len(currBlockingRQList) == 0 {
@@ -615,7 +623,7 @@ func (ctrl *ManagedQuotaController) addResourcesToRQs(currVmmrq *v1alpha12.Virtu
 				quotaNameAndSpec.Spec.Hard[v1.ResourceRequestsCPU] != rqToModify.Spec.Hard[v1.ResourceRequestsCPU] { //todo: check if we need more resources
 				continue //already modified
 			}
-			rqToModify.Spec.Hard = addResourcesToRQ(*rqToModify, &currVmmrq.Spec.AdditionalMigrationResources).Spec.Hard //todo: move to status
+			rqToModify.Spec.Hard = addResourcesToRQ(*rqToModify, &currVmmrq.Status.AdditionalMigrationResources).Spec.Hard
 			_, err = ctrl.virtCli.CoreV1().ResourceQuotas(rqToModify.Namespace).Update(context.Background(), rqToModify, metav1.UpdateOptions{})
 			if err != nil {
 				return err
@@ -785,12 +793,12 @@ func getLockingValidatingWebhook(ns string) v13.ValidatingWebhook {
 					APIGroups:   []string{"*"},
 					APIVersions: []string{"*"},
 					Scope:       &namespacedScope,
-					Resources:   []string{"virtualmachinemigrationresourcequotas"},
+					Resources:   []string{"resourcequotas"},
 				},
 			},
 			{
 				Operations: []v13.OperationType{
-					v13.Update, v13.Delete, v13.Create,
+					v13.Delete, v13.Create,
 				},
 				Rule: v13.Rule{
 					APIGroups:   []string{"*"},
@@ -841,4 +849,23 @@ func getRQNameAndSpecIfExist(blockingRQsList []v1alpha12.ResourceQuotaNameAndSpe
 		}
 	}
 	return nil
+}
+
+func areResourceMapsEqual(map1, map2 map[v1.ResourceName]resource.Quantity) bool {
+	if len(map1) != len(map2) {
+		return false
+	}
+
+	for key, value1 := range map1 {
+		value2, exists := map2[key]
+		if !exists {
+			return false
+		}
+
+		if !value1.Equal(value2) {
+			return false
+		}
+	}
+
+	return true
 }

@@ -50,6 +50,12 @@ type VirtualMachineMigrationResourceQuotaStatus struct {
 	// +nullable
 	CreationTime *metav1.Time `json:"creationTime,omitempty"`
 
+	// AdditionalMigrationResources specifies the extra resources needed during virtual machine migration,
+	//above the resourceQuota limit. This field helps ensure a successful migration by allowing you to define
+	//the additional resources required, such as CPU, memory, and storage.
+	// +optional
+	AdditionalMigrationResources corev1.ResourceList `json:"additionalMigrationResources,omitempty" protobuf:"bytes,1,rep,name=hard,casttype=ResourceList,castkey=ResourceName"`
+
 	// +optional
 	MigrationsToBlockingResourceQuotas map[string][]string `json:"migrationsToBlockingResourceQuotas,omitempty"`
 

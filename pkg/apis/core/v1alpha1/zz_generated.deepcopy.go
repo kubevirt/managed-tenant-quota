@@ -134,6 +134,13 @@ func (in *VirtualMachineMigrationResourceQuotaStatus) DeepCopyInto(out *VirtualM
 		in, out := &in.CreationTime, &out.CreationTime
 		*out = (*in).DeepCopy()
 	}
+	if in.AdditionalMigrationResources != nil {
+		in, out := &in.AdditionalMigrationResources, &out.AdditionalMigrationResources
+		*out = make(v1.ResourceList, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val.DeepCopy()
+		}
+	}
 	if in.MigrationsToBlockingResourceQuotas != nil {
 		in, out := &in.MigrationsToBlockingResourceQuotas, &out.MigrationsToBlockingResourceQuotas
 		*out = make(map[string][]string, len(*in))
