@@ -56,6 +56,7 @@ const (
 type ManagedQuotaController struct {
 	nsCache               *NamespaceCache
 	internalLock          *sync.Mutex
+	nsLockMap             *namespaceLockMap
 	podInformer           cache.SharedIndexInformer
 	migrationInformer     cache.SharedIndexInformer
 	resourceQuotaInformer cache.SharedIndexInformer
@@ -83,6 +84,7 @@ func NewManagedQuotaController(virtCli kubecli.KubevirtClient, mtqCli v1alpha13.
 		vmiInformer:           vmiInformer,
 		migrationQueue:        workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "migration-queue"),
 		internalLock:          &sync.Mutex{},
+		nsLockMap:             &namespaceLockMap{m: make(map[string]*sync.Mutex), mutex: &sync.Mutex{}},
 		nsCache:               NewNamespaceCache(),
 		recorder:              eventBroadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "mtq-controller"}),
 		podEvaluator:          core.NewPodEvaluator(nil, clock.RealClock{}),
@@ -214,8 +216,8 @@ func (ctrl *ManagedQuotaController) execute(key string) (error, enqueueState) {
 	if err != nil {
 		return err, BackOff
 	}
-	ctrl.internalLock.Lock() //Todo: this locking should be done per namespace and not for all namespaces.
-	defer ctrl.internalLock.Unlock()
+	ctrl.nsLockMap.Lock(migartionNS)
+	defer ctrl.nsLockMap.Unlock(migartionNS)
 	vmmrqObjsList, err := ctrl.mtqCli.VirtualMachineMigrationResourceQuotas(migartionNS).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return err, BackOff
@@ -613,7 +615,7 @@ func (ctrl *ManagedQuotaController) addResourcesToRQs(currVmmrq *v1alpha12.Virtu
 				quotaNameAndSpec.Spec.Hard[v1.ResourceRequestsCPU] != rqToModify.Spec.Hard[v1.ResourceRequestsCPU] { //todo: check if we need more resources
 				continue //already modified
 			}
-			rqToModify.Spec.Hard = addResourcesToRQ(*rqToModify, &currVmmrq.Spec.AdditionalMigrationResources).Spec.Hard
+			rqToModify.Spec.Hard = addResourcesToRQ(*rqToModify, &currVmmrq.Spec.AdditionalMigrationResources).Spec.Hard //todo: move to status
 			_, err = ctrl.virtCli.CoreV1().ResourceQuotas(rqToModify.Namespace).Update(context.Background(), rqToModify, metav1.UpdateOptions{})
 			if err != nil {
 				return err
