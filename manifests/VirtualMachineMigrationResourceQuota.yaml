@@ -5,5 +5,5 @@ metadata:
   namespace: test
 spec:
   additionalMigrationResources:
-    cpu: 500m
-    memory: 512Mi
+    requests.cpu: 500m
+    requests.memory: 512Mi

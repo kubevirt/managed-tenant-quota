@@ -68,7 +68,6 @@ type ManagedQuotaController struct {
 	mtqCli                v1alpha13.VirtualMachineMigrationResourceQuotaV1alpha1Client
 	recorder              record.EventRecorder
 	podEvaluator          v12.Evaluator
-	limitedResources      []resourcequota.LimitedResource
 }
 
 func NewManagedQuotaController(virtCli kubecli.KubevirtClient, mtqCli v1alpha13.VirtualMachineMigrationResourceQuotaV1alpha1Client, migrationInformer cache.SharedIndexInformer, podInformer cache.SharedIndexInformer, resourceQuotaInformer cache.SharedIndexInformer, vmmrqInformer cache.SharedIndexInformer, vmiInformer cache.SharedIndexInformer) *ManagedQuotaController {
@@ -89,12 +88,6 @@ func NewManagedQuotaController(virtCli kubecli.KubevirtClient, mtqCli v1alpha13.
 		nsCache:               NewNamespaceCache(),
 		recorder:              eventBroadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "mtq-controller"}),
 		podEvaluator:          core.NewPodEvaluator(nil, clock.RealClock{}),
-		limitedResources: []resourcequota.LimitedResource{
-			{
-				Resource:      "pods",
-				MatchContains: []string{"cpu", "memory"}, //TODO: check if more resources should be considered
-			},
-		},
 	}
 
 	_, err := ctrl.migrationInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -546,8 +539,8 @@ func listMatchingTargetPods(migration *v1alpha1.VirtualMachineInstanceMigration,
 	return pods, nil
 }
 
-func admitPodToQuota(resourceQuota *v1.ResourceQuota, attributes k8sadmission.Attributes, evaluator v12.Evaluator, limitedResources []resourcequota.LimitedResource) ([]v1.ResourceQuota, error) {
-	return quotaplugin.CheckRequest([]v1.ResourceQuota{*resourceQuota}, attributes, evaluator, limitedResources)
+func admitPodToQuota(resourceQuota *v1.ResourceQuota, attributes k8sadmission.Attributes, evaluator v12.Evaluator, limitedResource resourcequota.LimitedResource) ([]v1.ResourceQuota, error) {
+	return quotaplugin.CheckRequest([]v1.ResourceQuota{*resourceQuota}, attributes, evaluator, []resourcequota.LimitedResource{limitedResource})
 }
 
 func shouldLockNS(vmmrq *v1alpha12.VirtualMachineMigrationResourceQuota) bool {
@@ -594,8 +587,7 @@ func (ctrl *ManagedQuotaController) restoreOriginalRQs(rqSpecAndNameListToRestor
 
 		if exists {
 			rqToModify := rqToModifyObj.(*v1.ResourceQuota)
-			if quotaNameAndSpec.Spec.Hard[v1.ResourceRequestsMemory] == rqToModify.Spec.Hard[v1.ResourceRequestsMemory] &&
-				quotaNameAndSpec.Spec.Hard[v1.ResourceRequestsCPU] == rqToModify.Spec.Hard[v1.ResourceRequestsCPU] { //todo check if there are more resources
+			if areResourceMapsEqual(quotaNameAndSpec.Spec.Hard, rqToModify.Spec.Hard) {
 				continue //already restored
 			}
 			rqToModify.Spec.Hard = quotaNameAndSpec.Spec.Hard
@@ -629,8 +621,7 @@ func (ctrl *ManagedQuotaController) addResourcesToRQs(currVmmrq *v1alpha12.Virtu
 
 		if exists {
 			rqToModify := rqToModifyObj.(*v1.ResourceQuota)
-			if quotaNameAndSpec.Spec.Hard[v1.ResourceRequestsMemory] != rqToModify.Spec.Hard[v1.ResourceRequestsMemory] ||
-				quotaNameAndSpec.Spec.Hard[v1.ResourceRequestsCPU] != rqToModify.Spec.Hard[v1.ResourceRequestsCPU] { //todo: check if we need more resources
+			if !areResourceMapsEqual(quotaNameAndSpec.Spec.Hard, rqToModify.Spec.Hard) {
 				continue //already modified
 			}
 			rqToModify.Spec.Hard = addResourcesToRQ(*rqToModify, &currVmmrq.Status.AdditionalMigrationResources).Spec.Hard
@@ -653,6 +644,10 @@ func (ctrl *ManagedQuotaController) getCurrBlockingRQInNS(vmmrq *v1alpha12.Virtu
 	if err != nil {
 		return nil, err
 	}
+	currPodLimitedResource, err := getCurrLauncherLimitedResource(ctrl.podEvaluator, podToCreate)
+	if err != nil {
+		return nil, err
+	}
 	var currRQListItems []string
 	podToCreateAttr := k8sadmission.NewAttributesRecord(podToCreate, nil,
 		apiextensions.Kind("Pod").WithVersion("version"), podToCreate.Namespace, podToCreate.Name,
@@ -666,11 +661,12 @@ func (ctrl *ManagedQuotaController) getCurrBlockingRQInNS(vmmrq *v1alpha12.Virtu
 			resourceQuotaCopy.Spec = origRQNameAndSpec.Spec
 			resourceQuotaCopy.Status.Hard = origRQNameAndSpec.Spec.Hard
 		}
+
 		//Checking if the resourceQuota is blocking us
-		_, errWithCurrRQ := admitPodToQuota(resourceQuotaCopy, podToCreateAttr, ctrl.podEvaluator, ctrl.limitedResources)
+		_, errWithCurrRQ := admitPodToQuota(resourceQuotaCopy, podToCreateAttr, ctrl.podEvaluator, currPodLimitedResource)
 		//checking if the additional resources in vmmRQ will unblock us
 		rqAfterResourcesAddition := addResourcesToRQ(*resourceQuotaCopy, &resourceListToAdd)
-		_, errWithModifiedRQ := admitPodToQuota(rqAfterResourcesAddition, podToCreateAttr, ctrl.podEvaluator, ctrl.limitedResources)
+		_, errWithModifiedRQ := admitPodToQuota(rqAfterResourcesAddition, podToCreateAttr, ctrl.podEvaluator, currPodLimitedResource)
 		if errWithCurrRQ != nil && strings.Contains(errWithCurrRQ.Error(), "exceeded quota") && errWithModifiedRQ == nil {
 			currRQListItems = append(currRQListItems, (*resourceQuota).Name)
 		} else if errWithModifiedRQ != nil && strings.Contains(errWithModifiedRQ.Error(), "exceeded quota") {
@@ -692,22 +688,16 @@ func addResourcesToRQ(rq v1.ResourceQuota, rl *v1.ResourceList) *v1.ResourceQuot
 			Used: rq.Status.Used,
 		},
 	}
-	for rqResourceName, _ := range newRQ.Spec.Hard {
+	for rqResourceName, currQuantity := range newRQ.Spec.Hard {
 		for vmmrqResourceName, quantityToAdd := range *rl {
-			if resourceNamesMatch(rqResourceName, vmmrqResourceName) {
-				quantity := newRQ.Spec.Hard[rqResourceName]
-				quantity.Add(quantityToAdd)
-				newRQ.Spec.Hard[rqResourceName] = quantity
-				newRQ.Status.Hard[rqResourceName] = quantity
+			if rqResourceName == vmmrqResourceName {
+				currQuantity.Add(quantityToAdd)
+				newRQ.Spec.Hard[rqResourceName] = currQuantity
+				newRQ.Status.Hard[rqResourceName] = currQuantity
 			}
 		}
 	}
 	return newRQ
-}
-
-func resourceNamesMatch(rqResourceName v1.ResourceName, vmmrqResourceName v1.ResourceName) bool {
-	return (rqResourceName == v1.ResourceRequestsMemory && vmmrqResourceName == v1.ResourceMemory) ||
-		(rqResourceName == v1.ResourceRequestsCPU && vmmrqResourceName == v1.ResourceCPU)
 }
 
 func lockNamespace(ns string, cli kubecli.KubevirtClient) error {
@@ -878,4 +868,19 @@ func areResourceMapsEqual(map1, map2 map[v1.ResourceName]resource.Quantity) bool
 	}
 
 	return true
+}
+
+func getCurrLauncherLimitedResource(podEvaluator v12.Evaluator, podToCreate *v1.Pod) (resourcequota.LimitedResource, error) {
+	launcherLimitedResource := resourcequota.LimitedResource{
+		Resource:      "pods",
+		MatchContains: []string{},
+	}
+	usage, err := podEvaluator.Usage(podToCreate)
+	if err != nil {
+		return launcherLimitedResource, err
+	}
+	for k, _ := range usage {
+		launcherLimitedResource.MatchContains = append(launcherLimitedResource.MatchContains, string(k))
+	}
+	return launcherLimitedResource, nil
 }
