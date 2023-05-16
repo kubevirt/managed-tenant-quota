@@ -119,6 +119,7 @@ func NewManagedQuotaController(virtCli kubecli.KubevirtClient, mtqCli v1alpha13.
 // When a virtualMachineMigrationResourceQuota is added, figure out if there are pending migration in the namespace
 // if there are we should push them into the queue to accelerate the target creation process
 func (ctrl *ManagedQuotaController) addVmmrq(obj interface{}) {
+	atLeastOneMigration := false
 	vmmrq := obj.(*v1alpha12.VirtualMachineMigrationResourceQuota)
 	log.Log.V(4).Object(vmmrq).Infof("VMMRQ " + vmmrq.Name + " added")
 	objs, _ := ctrl.migrationInformer.GetIndexer().ByIndex(cache.NamespaceIndex, vmmrq.Namespace)
@@ -130,8 +131,12 @@ func (ctrl *ManagedQuotaController) addVmmrq(obj interface{}) {
 		for _, cond := range migration.Status.Conditions {
 			if cond.Type == VirtualMachineInstanceMigrationRejectedByResourceQuota {
 				ctrl.enqueueMigration(migration)
+				atLeastOneMigration = true
 			}
 		}
+	}
+	if !atLeastOneMigration { //should update vmmrq.status even if there aren't any blocked migrations
+		ctrl.migrationQueue.Add(vmmrq.Namespace + "/fake")
 	}
 	return
 }
@@ -139,6 +144,7 @@ func (ctrl *ManagedQuotaController) addVmmrq(obj interface{}) {
 // When a virtualMachineMigrationResourceQuota is updated , figure out if there are pending migration in the namespace
 // if there are we should push them into the queue to accelerate the target creation process
 func (ctrl *ManagedQuotaController) updateVmmrq(old, cur interface{}) {
+	atLeastOneMigration := false
 	curVmmrq := cur.(*v1alpha12.VirtualMachineMigrationResourceQuota)
 	oldVmmrq := old.(*v1alpha12.VirtualMachineMigrationResourceQuota)
 	if equality.Semantic.DeepEqual(curVmmrq.Spec, oldVmmrq.Spec) {
@@ -156,8 +162,12 @@ func (ctrl *ManagedQuotaController) updateVmmrq(old, cur interface{}) {
 		for _, cond := range migration.Status.Conditions {
 			if cond.Type == VirtualMachineInstanceMigrationRejectedByResourceQuota {
 				ctrl.enqueueMigration(migration)
+				atLeastOneMigration = true
 			}
 		}
+	}
+	if !atLeastOneMigration { //should update vmmrq.status even if there aren't any blocked migrations
+		ctrl.migrationQueue.Add(curVmmrq.Namespace + "/fake")
 	}
 	return
 }
