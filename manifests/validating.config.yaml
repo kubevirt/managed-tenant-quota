@@ -1,20 +1,25 @@
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
-  name: "example-webhook.acme.com"
+  name: "lock.test.com"
 webhooks:
-  - name: "example-webhook.acme.com"
+  - name: "lock.test.com"
     rules:
-      - apiGroups: [""]
-        apiVersions: ["v1"]
-        operations: ["CREATE"]
-        resources: ["pods"]
-        scope: "*"
-      - apiGroups: [ "" ]
-        apiVersions: [ "v1" ]
+      - apiGroups: [ "*" ]
+        apiVersions: [ "*" ]
         operations: [ "UPDATE" ]
         resources: [ "resourcequotas" ]
-        scope: "*"
+        scope: "Namespaced"
+      - apiGroups: [ "*" ]
+        apiVersions: [ "*" ]
+        operations: [ "DELETE","CREATE" ]
+        resources: [ "virtualmachinemigrationresourcequotas" ]
+        scope: "Namespaced"
+      - apiGroups: [ "*" ]
+        apiVersions: [ "*" ]
+        operations: [ "CREATE" ]
+        resources: [ "pods" ]
+        scope: "Namespaced"
     clientConfig:
       service:
         namespace: default
@@ -22,6 +27,10 @@ webhooks:
         path: /validate-pods
         port: 443
       caBundle: "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURkRENDQWx5Z0F3SUJBZ0lVVnA3Q0FQZ2VLcmU5OUNoeVh3emk4SVN6VFA0d0RRWUpLb1pJaHZjTkFRRUwKQlFBd1VqRUxNQWtHQTFVRUJoTUNRVlV4RURBT0JnTlZCQWdUQjBWNFlXMXdiR1V4RWpBUUJnTlZCQWNUQ1UxbApiR0p2ZFhKdVpURVFNQTRHQTFVRUNoTUhSWGhoYlhCc1pURUxNQWtHQTFVRUN4TUNRMEV3SGhjTk1qTXdORE13Ck1EY3hOREF3V2hjTk1qZ3dOREk0TURjeE5EQXdXakJTTVFzd0NRWURWUVFHRXdKQlZURVFNQTRHQTFVRUNCTUgKUlhoaGJYQnNaVEVTTUJBR0ExVUVCeE1KVFdWc1ltOTFjbTVsTVJBd0RnWURWUVFLRXdkRmVHRnRjR3hsTVFzdwpDUVlEVlFRTEV3SkRRVENDQVNJd0RRWUpLb1pJaHZjTkFRRUJCUUFEZ2dFUEFEQ0NBUW9DZ2dFQkFLVU5VQnBQCmtaT0l1QkE3MFV0Mk1VUG0yYXF1dExtNzZhcFg2Ykl2aURkYVJqVXhLU3c3TVV2RmVsUVNzL010YkVNSk5jN2kKN1FtOTVXdzdwV3l2eXZUS1N1eDJtV09tS3ZwMlRma0o4R2ZhVDhEMENPUU03cGhubHNZNHp5L0JBYTUrNU9heApKV3N4K0E4V2JWTS9rTnJhenBlVXFOTEQ2aU9QOFBNb2ZsTnJidXdTbCtPMFMrMUVOUE1wQ2hPTmM5OGdSQy9TCndaZkVUTW9XMy9aVUxoMjRjSkY0MVFNanU2YklFWCt4QlRjYTlad2lxc2dTSGthZi9XeklhMDA0UnRLTkU5cWsKNUtYMThhTXMwNXhPQTZsSHVXeUxaRFdXbTI2aFc0Z3ZrUmFrZVZIdVl3Q2IwZ0FDVUcrVkEyd1c1bWhUTm96eAphTm1xSm1IMTViaUdvODBDQXdFQUFhTkNNRUF3RGdZRFZSMFBBUUgvQkFRREFnRUdNQThHQTFVZEV3RUIvd1FGCk1BTUJBZjh3SFFZRFZSME9CQllFRkIyTXF2TXd3Y2E1ZWpHQlN6OG1aT29GcEJ2dk1BMEdDU3FHU0liM0RRRUIKQ3dVQUE0SUJBUUJqYlhLQXQwNGlQUC9NWUZmWFoxeHIwRDJnNnRRWlE1Lzk1SXhPbFVHVEdycDZCc3dFVG9UWQpneHhZU0VEVnZMVTU2RzZwZENBUklMVCtUVnB2YVVKNlV0UlJFbHF1ZFRqK3lwREhQRzdSaW9ONE1xYVlxWisrCkFjdDhwNGhKY3dCLzU1Yll6TU0vUlNBUDNyUDhSTm13Si9VUXNkczdBZElkaTZzRE9ZR0ZUN3FMbXlYdUQ0TU8KVDA0dEozazJVcW5wb2Z0QmM0ZlpsZ1JPTkZDRW9jWFlEanFlODdiU1F4K3k1eGlrb1FBZUt2VU1SMHBSZ0RUTwpMcHY3QWEvazQyZTI5MmlTM2xFZ004N1ROZ1d4T3dYK3FTZEhPQmxscnU1R09Qa0dTaHRsS2Fha0NRaW54cUNzCkE1ZjUyOFdLenpwbjNWM0J5eUhJRElXa0dZck1aNEtlCi0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0K"
-    admissionReviewVersions: ["v1"]
+    admissionReviewVersions: ["v1", "v1beta1"]
     sideEffects: None
-    timeoutSeconds: 2
+    matchPolicy: Equivalent
+    failurePolicy: Fail
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: "test"
