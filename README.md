@@ -1,5 +1,8 @@
 # KubeVirt Managed-Tenant-Quota
 
+**Please keep in mind the project still requires thorough testing,
+and the current deployment process is not straightforward.**
+
 ## Context:
 
 In a multi-tenant environment, a cluster administrator creates a namespace
