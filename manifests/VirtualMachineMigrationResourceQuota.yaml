@@ -1,4 +1,4 @@
-apiVersion: virtualmachinemigrationresourcequota.kubevirt.io/v1alpha1
+apiVersion: mtq.kubevirt.io/v1alpha1
 kind: VirtualMachineMigrationResourceQuota
 metadata:
   name: my-vmmrq

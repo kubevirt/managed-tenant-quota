@@ -40,3 +40,14 @@ echo $SCRIPT_ROOT/pkg/apis/core/v1alpha1 "$(dirname "${BASH_SOURCE[0]}")/../../.
 mv "$(dirname "${BASH_SOURCE[0]}")/../../../kubevirt.io/managed-tenant-quota/pkg/apis/core/v1alpha1/zz_generated.deepcopy.go" $SCRIPT_ROOT/pkg/apis/core/v1alpha1 -f
 mv "$(dirname "${BASH_SOURCE[0]}")/../../../kubevirt.io/managed-tenant-quota/pkg/generated" $SCRIPT_ROOT/pkg
 rm -R "$(dirname "${BASH_SOURCE[0]}")/../../../kubevirt.io"
+
+echo "************* running controller-gen to generate schema yaml ********************"
+(
+    mkdir -p "${SCRIPT_ROOT}/_out/manifests/schema"
+    find "${SCRIPT_ROOT}/_out/manifests/schema/" -type f -exec rm {} -f \;
+    $HOME/go/bin/controller-gen  crd:crdVersions=v1 output:dir=${SCRIPT_ROOT}/_out/manifests/schema paths=./pkg/apis/core/...
+)
+
+(cd "${SCRIPT_ROOT}/tools/crd-generator/" && go build -o ../../bin/crd-generator ./...)
+
+./bin/crd-generator --crdDir=./_out/manifests/schema/ --outputDir=./pkg/mtq-operator/resources/

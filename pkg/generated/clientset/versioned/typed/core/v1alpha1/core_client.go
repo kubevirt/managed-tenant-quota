@@ -26,24 +26,29 @@ import (
 	"kubevirt.io/managed-tenant-quota/pkg/generated/clientset/versioned/scheme"
 )
 
-type VirtualMachineMigrationResourceQuotaV1alpha1Interface interface {
+type MtqV1alpha1Interface interface {
 	RESTClient() rest.Interface
+	MTQsGetter
 	VirtualMachineMigrationResourceQuotasGetter
 }
 
-// VirtualMachineMigrationResourceQuotaV1alpha1Client is used to interact with features provided by the virtualMachineMigrationResourceQuota.kubevirt.io group.
-type VirtualMachineMigrationResourceQuotaV1alpha1Client struct {
+// MtqV1alpha1Client is used to interact with features provided by the mtq.kubevirt.io group.
+type MtqV1alpha1Client struct {
 	restClient rest.Interface
 }
 
-func (c *VirtualMachineMigrationResourceQuotaV1alpha1Client) VirtualMachineMigrationResourceQuotas(namespace string) VirtualMachineMigrationResourceQuotaInterface {
+func (c *MtqV1alpha1Client) MTQs() MTQInterface {
+	return newMTQs(c)
+}
+
+func (c *MtqV1alpha1Client) VirtualMachineMigrationResourceQuotas(namespace string) VirtualMachineMigrationResourceQuotaInterface {
 	return newVirtualMachineMigrationResourceQuotas(c, namespace)
 }
 
-// NewForConfig creates a new VirtualMachineMigrationResourceQuotaV1alpha1Client for the given config.
+// NewForConfig creates a new MtqV1alpha1Client for the given config.
 // NewForConfig is equivalent to NewForConfigAndClient(c, httpClient),
 // where httpClient was generated with rest.HTTPClientFor(c).
-func NewForConfig(c *rest.Config) (*VirtualMachineMigrationResourceQuotaV1alpha1Client, error) {
+func NewForConfig(c *rest.Config) (*MtqV1alpha1Client, error) {
 	config := *c
 	if err := setConfigDefaults(&config); err != nil {
 		return nil, err
@@ -55,9 +60,9 @@ func NewForConfig(c *rest.Config) (*VirtualMachineMigrationResourceQuotaV1alpha1
 	return NewForConfigAndClient(&config, httpClient)
 }
 
-// NewForConfigAndClient creates a new VirtualMachineMigrationResourceQuotaV1alpha1Client for the given config and http client.
+// NewForConfigAndClient creates a new MtqV1alpha1Client for the given config and http client.
 // Note the http client provided takes precedence over the configured transport values.
-func NewForConfigAndClient(c *rest.Config, h *http.Client) (*VirtualMachineMigrationResourceQuotaV1alpha1Client, error) {
+func NewForConfigAndClient(c *rest.Config, h *http.Client) (*MtqV1alpha1Client, error) {
 	config := *c
 	if err := setConfigDefaults(&config); err != nil {
 		return nil, err
@@ -66,12 +71,12 @@ func NewForConfigAndClient(c *rest.Config, h *http.Client) (*VirtualMachineMigra
 	if err != nil {
 		return nil, err
 	}
-	return &VirtualMachineMigrationResourceQuotaV1alpha1Client{client}, nil
+	return &MtqV1alpha1Client{client}, nil
 }
 
-// NewForConfigOrDie creates a new VirtualMachineMigrationResourceQuotaV1alpha1Client for the given config and
+// NewForConfigOrDie creates a new MtqV1alpha1Client for the given config and
 // panics if there is an error in the config.
-func NewForConfigOrDie(c *rest.Config) *VirtualMachineMigrationResourceQuotaV1alpha1Client {
+func NewForConfigOrDie(c *rest.Config) *MtqV1alpha1Client {
 	client, err := NewForConfig(c)
 	if err != nil {
 		panic(err)
@@ -79,9 +84,9 @@ func NewForConfigOrDie(c *rest.Config) *VirtualMachineMigrationResourceQuotaV1al
 	return client
 }
 
-// New creates a new VirtualMachineMigrationResourceQuotaV1alpha1Client for the given RESTClient.
-func New(c rest.Interface) *VirtualMachineMigrationResourceQuotaV1alpha1Client {
-	return &VirtualMachineMigrationResourceQuotaV1alpha1Client{c}
+// New creates a new MtqV1alpha1Client for the given RESTClient.
+func New(c rest.Interface) *MtqV1alpha1Client {
+	return &MtqV1alpha1Client{c}
 }
 
 func setConfigDefaults(config *rest.Config) error {
@@ -99,7 +104,7 @@ func setConfigDefaults(config *rest.Config) error {
 
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
-func (c *VirtualMachineMigrationResourceQuotaV1alpha1Client) RESTClient() rest.Interface {
+func (c *MtqV1alpha1Client) RESTClient() rest.Interface {
 	if c == nil {
 		return nil
 	}

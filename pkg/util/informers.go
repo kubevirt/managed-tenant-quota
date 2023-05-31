@@ -35,7 +35,7 @@ func GetVirtCli() (kubecli.KubevirtClient, error) {
 	return virtCli, err
 }
 
-func GetMTQCli() (v1alpha12.VirtualMachineMigrationResourceQuotaV1alpha1Client, error) {
+func GetMTQCli() (v1alpha12.MtqV1alpha1Client, error) {
 	cfg, err := kubecli.GetKubevirtClientConfig()
 	if err != nil {
 		klog.Fatalf("Unable to get kube config: %v\n", errors.WithStack(err))
@@ -46,16 +46,16 @@ func GetMTQCli() (v1alpha12.VirtualMachineMigrationResourceQuotaV1alpha1Client, 
 
 func GetMigrationInformer(virtCli kubecli.KubevirtClient) (cache.SharedIndexInformer, error) {
 	listWatcher := NewListWatchFromClient(virtCli.RestClient(), "virtualmachineinstancemigrations", k8sv1.NamespaceAll, fields.Everything(), labels.Everything())
-	vmiInformer := cache.NewSharedIndexInformer(listWatcher, &k6tv1.VirtualMachineInstanceMigration{}, 1*time.Hour, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	migrationInformer := cache.NewSharedIndexInformer(listWatcher, &k6tv1.VirtualMachineInstanceMigration{}, 1*time.Hour, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 
-	return vmiInformer, nil
+	return migrationInformer, nil
 }
 
-func GetVirtualMachineMigrationResourceQuotaInformer(mtqCli v1alpha12.VirtualMachineMigrationResourceQuotaV1alpha1Client) (cache.SharedIndexInformer, error) {
+func GetVirtualMachineMigrationResourceQuotaInformer(mtqCli v1alpha12.MtqV1alpha1Client) (cache.SharedIndexInformer, error) {
 	listWatcher := NewListWatchFromClient(mtqCli.RESTClient(), "virtualmachinemigrationresourcequotas", k8sv1.NamespaceAll, fields.Everything(), labels.Everything())
-	vmiInformer := cache.NewSharedIndexInformer(listWatcher, &v1alpha1.VirtualMachineMigrationResourceQuota{}, 1*time.Hour, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	vmmrqInformer := cache.NewSharedIndexInformer(listWatcher, &v1alpha1.VirtualMachineMigrationResourceQuota{}, 1*time.Hour, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 
-	return vmiInformer, nil
+	return vmmrqInformer, nil
 }
 
 func GetPodInformer(virtCli kubecli.KubevirtClient) (cache.SharedIndexInformer, error) {
@@ -64,9 +64,9 @@ func GetPodInformer(virtCli kubecli.KubevirtClient) (cache.SharedIndexInformer, 
 		panic(err)
 	}
 	listWatcher := NewListWatchFromClient(virtCli.CoreV1().RESTClient(), "pods", k8sv1.NamespaceAll, fields.Everything(), labelSelector)
-	vmiInformer := cache.NewSharedIndexInformer(listWatcher, &v1.Pod{}, 1*time.Hour, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	podInformer := cache.NewSharedIndexInformer(listWatcher, &v1.Pod{}, 1*time.Hour, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 
-	return vmiInformer, nil
+	return podInformer, nil
 }
 
 func GetVMIInformer(virtCli kubecli.KubevirtClient) (cache.SharedIndexInformer, error) {
@@ -76,6 +76,12 @@ func GetVMIInformer(virtCli kubecli.KubevirtClient) (cache.SharedIndexInformer, 
 	return vmiInformer, nil
 }
 
+func KubeVirtInformer(virtCli kubecli.KubevirtClient) (cache.SharedIndexInformer, error) {
+	listWatcher := NewListWatchFromClient(virtCli.RestClient(), "kubevirts", k8sv1.NamespaceAll, fields.Everything(), labels.Everything())
+	kubevirtInformer := cache.NewSharedIndexInformer(listWatcher, &k6tv1.KubeVirt{}, 1*time.Hour, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+
+	return kubevirtInformer, nil
+}
 func GetResourceQuotaInformer(virtCli kubecli.KubevirtClient) (cache.SharedIndexInformer, error) {
 	listWatcher := NewListWatchFromClient(virtCli.CoreV1().RESTClient(), "resourcequotas", k8sv1.NamespaceAll, fields.Everything(), labels.Everything())
 	vmiInformer := cache.NewSharedIndexInformer(listWatcher, &v1.ResourceQuota{}, 1*time.Hour, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})

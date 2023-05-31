@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2022 Red Hat, Inc.
+ * Copyright 2023 Red Hat, Inc.
  *
  */
 
@@ -56,6 +56,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
 		&VirtualMachineMigrationResourceQuota{},
 		&VirtualMachineMigrationResourceQuotaList{},
+		&MTQ{},
+		&MTQList{},
 	)
 
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)

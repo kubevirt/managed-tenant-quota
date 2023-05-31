@@ -2,9 +2,9 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app: example-webhook
+    mtq.kubevirt.io: mtq-lock
   name: example-webhook
-  namespace: default
+  namespace: mtq
 spec:
   replicas: 1
   selector:
@@ -15,7 +15,7 @@ spec:
       labels:
         app: example-webhook
     spec:
-      serviceAccountName: mtq-webhook
+      serviceAccountName: mtq-lock
       containers:
         - image: quay.io/bmordeha/kubevirt/mtq_webhook:latest
           imagePullPolicy: Always
@@ -23,12 +23,6 @@ spec:
           env:
             - name: TLS
               value: "true"
-            - name: KUBEVIRT_INSTALL_NAMESPACE
-              value: "kubevirt"
-            - name: MTQ_INSTALL_NAMESPACE
-              value: "default"
-            - name: LOG_JSON
-              value: "false"
           volumeMounts:
             - name: tls
               mountPath: "/etc/admission-webhook/tls"
@@ -36,4 +30,4 @@ spec:
       volumes:
         - name: tls
           secret:
-            secretName: example-webhook
+            secretName: mtq-lock-server-cert

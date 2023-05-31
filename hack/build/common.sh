@@ -1,0 +1,33 @@
+OPERATOR_IMAGE_NAME=${OPERATOR_IMAGE_NAME:-mtq_operator}
+CONTROLLER_IMAGE_NAME=${CONTROLLER_IMAGE_NAME:-mtq_controller}
+MTQ_LOCK_IMAGE_NAME=${MTQ_LOCK_IMAGE_NAME:-mtq_webhook}
+DOCKER_PREFIX=quay.io/bmordeha/kubevirt
+DOCKER_TAG=${DOCKER_TAG:-latest}
+VERBOSITY=${VERBOSITY:-1}
+PULL_POLICY=${PULL_POLICY:-Always}
+MTQ_NAMESPACE=${MTQ_NAMESPACE:-mtq}
+CR_NAME=${CR_NAME:-mtq}
+
+MTQ_DIR="$(cd $(dirname $0)/../../ && pwd -P)"
+MTQ_GO_PACKAGE=kubevirt.io/Managed-Tenent-Quota
+BIN_DIR=${MTQ_DIR}/bin
+OUT_DIR=${MTQ_DIR}/_out
+CMD_OUT_DIR=${MTQ_DIR}/cmd
+TESTS_OUT_DIR=${MTQ_DIR}/tests
+BUILD_DIR=${MTQ_DIR}/hack/build
+MANIFEST_TEMPLATE_DIR=${MTQ_DIR}/manifests/templates
+MANIFEST_GENERATED_DIR=${MTQ_DIR}/manifests/generated
+SOURCE_DIRS="pkg tests tools"
+APIDOCS_OUT_DIR=${OUT_DIR}/apidocs
+CACHE_DIR=${OUT_DIR}/gocache
+VENDOR_DIR=${MTQ_DIR}/vendor
+ARCHITECTURE="${BUILD_ARCH:-$(uname -m)}"
+HOST_ARCHITECTURE="$(uname -m)"
+MTQ_CRI=docker
+if [ "${MTQ_CRI}" = "docker" ]; then
+   MTQ_CONTAINER_BUILDCMD=${MTQ_CONTAINER_BUILDCMD:-docker}
+else
+   MTQ_CONTAINER_BUILDCMD=${MTQ_CONTAINER_BUILDCMD:-buildah}
+fi
+echo "MTQ_CRI: ${MTQ_CRI}, MTQ_CONTAINER_BUILDCMD: ${MTQ_CONTAINER_BUILDCMD}"
+

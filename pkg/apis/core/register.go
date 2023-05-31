@@ -21,7 +21,7 @@ package virtualMachineMigrationResourceQuota
 
 // GroupName is the group name used in this package
 const (
-	GroupName     = "virtualmachinemigrationresourcequota.kubevirt.io"
+	GroupName     = "mtq.kubevirt.io"
 	LatestVersion = "v1alpha1"
 	Kind          = "VirtualMachineMigrationResourceQuota"
 	ListKind      = "VirtualMachineMigrationResourceQuotaList"

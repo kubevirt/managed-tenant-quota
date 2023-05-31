@@ -243,9 +243,9 @@ type SharedInformerFactory interface {
 	// client.
 	InformerFor(obj runtime.Object, newFunc internalinterfaces.NewInformerFunc) cache.SharedIndexInformer
 
-	VirtualMachineMigrationResourceQuota() core.Interface
+	Mtq() core.Interface
 }
 
-func (f *sharedInformerFactory) VirtualMachineMigrationResourceQuota() core.Interface {
+func (f *sharedInformerFactory) Mtq() core.Interface {
 	return core.New(f, f.namespace, f.tweakListOptions)
 }

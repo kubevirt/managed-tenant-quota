@@ -23,7 +23,6 @@ import (
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
-	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
@@ -32,13 +31,13 @@ import (
 
 // FakeVirtualMachineMigrationResourceQuotas implements VirtualMachineMigrationResourceQuotaInterface
 type FakeVirtualMachineMigrationResourceQuotas struct {
-	Fake *FakeVirtualMachineMigrationResourceQuotaV1alpha1
+	Fake *FakeMtqV1alpha1
 	ns   string
 }
 
-var virtualmachinemigrationresourcequotasResource = schema.GroupVersionResource{Group: "virtualMachineMigrationResourceQuota.kubevirt.io", Version: "v1alpha1", Resource: "virtualmachinemigrationresourcequotas"}
+var virtualmachinemigrationresourcequotasResource = v1alpha1.SchemeGroupVersion.WithResource("virtualmachinemigrationresourcequotas")
 
-var virtualmachinemigrationresourcequotasKind = schema.GroupVersionKind{Group: "virtualMachineMigrationResourceQuota.kubevirt.io", Version: "v1alpha1", Kind: "VirtualMachineMigrationResourceQuota"}
+var virtualmachinemigrationresourcequotasKind = v1alpha1.SchemeGroupVersion.WithKind("VirtualMachineMigrationResourceQuota")
 
 // Get takes name of the virtualMachineMigrationResourceQuota, and returns the corresponding virtualMachineMigrationResourceQuota object, and an error if there is any.
 func (c *FakeVirtualMachineMigrationResourceQuotas) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.VirtualMachineMigrationResourceQuota, err error) {

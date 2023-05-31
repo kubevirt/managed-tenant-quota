@@ -24,6 +24,8 @@ import (
 
 // Interface provides access to all the informers in this group version.
 type Interface interface {
+	// MTQs returns a MTQInformer.
+	MTQs() MTQInformer
 	// VirtualMachineMigrationResourceQuotas returns a VirtualMachineMigrationResourceQuotaInformer.
 	VirtualMachineMigrationResourceQuotas() VirtualMachineMigrationResourceQuotaInformer
 }
@@ -37,6 +39,11 @@ type version struct {
 // New returns a new Interface.
 func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakListOptions internalinterfaces.TweakListOptionsFunc) Interface {
 	return &version{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
+}
+
+// MTQs returns a MTQInformer.
+func (v *version) MTQs() MTQInformer {
+	return &mTQInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // VirtualMachineMigrationResourceQuotas returns a VirtualMachineMigrationResourceQuotaInformer.

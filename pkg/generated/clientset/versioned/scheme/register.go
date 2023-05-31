@@ -24,14 +24,14 @@ import (
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	serializer "k8s.io/apimachinery/pkg/runtime/serializer"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	virtualmachinemigrationresourcequotav1alpha1 "kubevirt.io/managed-tenant-quota/pkg/apis/core/v1alpha1"
+	mtqv1alpha1 "kubevirt.io/managed-tenant-quota/pkg/apis/core/v1alpha1"
 )
 
 var Scheme = runtime.NewScheme()
 var Codecs = serializer.NewCodecFactory(Scheme)
 var ParameterCodec = runtime.NewParameterCodec(Scheme)
 var localSchemeBuilder = runtime.SchemeBuilder{
-	virtualmachinemigrationresourcequotav1alpha1.AddToScheme,
+	mtqv1alpha1.AddToScheme,
 }
 
 // AddToScheme adds all types of this clientset into the given scheme. This allows composition

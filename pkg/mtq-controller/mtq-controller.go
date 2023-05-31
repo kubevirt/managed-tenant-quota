@@ -3,6 +3,7 @@ package mtq_controller
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -28,8 +29,10 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	corev1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	"kubevirt.io/containerized-data-importer/pkg/util/cert/fetcher"
 	v1alpha12 "kubevirt.io/managed-tenant-quota/pkg/apis/core/v1alpha1"
 	v1alpha13 "kubevirt.io/managed-tenant-quota/pkg/generated/clientset/versioned/typed/core/v1alpha1"
+	"kubevirt.io/managed-tenant-quota/pkg/mtq-operator/resources/utils"
 	"kubevirt.io/managed-tenant-quota/pkg/util"
 	webhooklock "kubevirt.io/managed-tenant-quota/pkg/validation-webhook-lock"
 	"os"
@@ -53,6 +56,7 @@ const (
 )
 
 type ManagedQuotaController struct {
+	mtqNs                 string
 	nsCache               *NamespaceCache
 	internalLock          *sync.Mutex
 	nsLockMap             *namespaceLockMap
@@ -63,16 +67,18 @@ type ManagedQuotaController struct {
 	vmiInformer           cache.SharedIndexInformer
 	migrationQueue        workqueue.RateLimitingInterface
 	virtCli               kubecli.KubevirtClient
-	mtqCli                v1alpha13.VirtualMachineMigrationResourceQuotaV1alpha1Client
+	mtqCli                v1alpha13.MtqV1alpha1Client
 	recorder              record.EventRecorder
 	podEvaluator          v12.Evaluator
+	serverBundleFetcher   *fetcher.ConfigMapCertBundleFetcher
 }
 
-func NewManagedQuotaController(virtCli kubecli.KubevirtClient, mtqCli v1alpha13.VirtualMachineMigrationResourceQuotaV1alpha1Client, migrationInformer cache.SharedIndexInformer, podInformer cache.SharedIndexInformer, resourceQuotaInformer cache.SharedIndexInformer, vmmrqInformer cache.SharedIndexInformer, vmiInformer cache.SharedIndexInformer) *ManagedQuotaController {
+func NewManagedQuotaController(virtCli kubecli.KubevirtClient, mtqNs string, mtqCli v1alpha13.MtqV1alpha1Client, migrationInformer cache.SharedIndexInformer, podInformer cache.SharedIndexInformer, resourceQuotaInformer cache.SharedIndexInformer, vmmrqInformer cache.SharedIndexInformer, vmiInformer cache.SharedIndexInformer, serverBundleFetcher *fetcher.ConfigMapCertBundleFetcher) *ManagedQuotaController {
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartRecordingToSink(&v14.EventSinkImpl{Interface: virtCli.CoreV1().Events(v1.NamespaceAll)})
 
 	ctrl := ManagedQuotaController{
+		mtqNs:                 mtqNs,
 		virtCli:               virtCli,
 		mtqCli:                mtqCli,
 		migrationInformer:     migrationInformer,
@@ -80,11 +86,12 @@ func NewManagedQuotaController(virtCli kubecli.KubevirtClient, mtqCli v1alpha13.
 		resourceQuotaInformer: resourceQuotaInformer,
 		vmmrqInformer:         vmmrqInformer,
 		vmiInformer:           vmiInformer,
+		serverBundleFetcher:   serverBundleFetcher,
 		migrationQueue:        workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "migration-queue"),
 		internalLock:          &sync.Mutex{},
 		nsLockMap:             &namespaceLockMap{m: make(map[string]*sync.Mutex), mutex: &sync.Mutex{}},
 		nsCache:               NewNamespaceCache(),
-		recorder:              eventBroadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "mtq-controller"}),
+		recorder:              eventBroadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: utils.ControllerPodName}),
 		podEvaluator:          core.NewPodEvaluator(nil, clock.RealClock{}),
 	}
 
@@ -295,13 +302,17 @@ func (ctrl *ManagedQuotaController) execute(key string) (error, enqueueState) {
 	case Unlocked:
 		nsLocked = false
 	case Unknown: //expensive api call
-		nsLocked, err = webhooklock.NamespaceLocked(migartionNS, ctrl.virtCli)
+		nsLocked, err = webhooklock.NamespaceLocked(migartionNS, ctrl.mtqNs, ctrl.virtCli)
 		if err != nil {
 			return err, Immediate
 		}
 	}
 	if shouldLockNS && !nsLocked {
-		err := webhooklock.LockNamespace(migartionNS, ctrl.virtCli)
+		caBundle, err := ctrl.serverBundleFetcher.BundleBytes() //todo use case no need to fetch caBundle every lock just make sure it's not expired
+		if err != nil {
+			return err, Immediate
+		}
+		err = webhooklock.LockNamespace(migartionNS, ctrl.mtqNs, ctrl.virtCli, caBundle)
 		if err != nil {
 			return err, Immediate
 		}
@@ -395,7 +406,11 @@ func (ctrl *ManagedQuotaController) getAllBlockingRQsInNS(vmmrq *v1alpha12.Virtu
 
 func Run(threadiness int, stop <-chan struct{}) error {
 	defer utilruntime.HandleCrash()
-
+	nsBytes, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
+	if err != nil {
+		panic(err)
+	}
+	mtqNs := string(nsBytes)
 	virtCli, err := util.GetVirtCli()
 	if err != nil {
 		return nil
@@ -412,6 +427,7 @@ func Run(threadiness int, stop <-chan struct{}) error {
 	if err != nil {
 		os.Exit(1)
 	}
+
 	resourceQuotaInformer, err := util.GetResourceQuotaInformer(virtCli)
 	if err != nil {
 		os.Exit(1)
@@ -431,7 +447,12 @@ func Run(threadiness int, stop <-chan struct{}) error {
 	go virtualMachineMigrationResourceQuotaInformer.Run(stop)
 	go vmiInformer.Run(stop)
 
-	ctrl := NewManagedQuotaController(virtCli, mtqCli, migrationInformer, podInformer, resourceQuotaInformer, virtualMachineMigrationResourceQuotaInformer, vmiInformer)
+	serverBundleFetcher := &fetcher.ConfigMapCertBundleFetcher{
+		Name:   "mtq-lock-signer-bundle",
+		Client: virtCli.CoreV1().ConfigMaps(mtqNs),
+	}
+
+	ctrl := NewManagedQuotaController(virtCli, mtqNs, mtqCli, migrationInformer, podInformer, resourceQuotaInformer, virtualMachineMigrationResourceQuotaInformer, vmiInformer, serverBundleFetcher)
 
 	log.Log.Info("Starting Managed Quota controller")
 	defer log.Log.Info("Shutting down Managed Quota controller")

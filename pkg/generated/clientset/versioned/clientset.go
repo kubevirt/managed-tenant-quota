@@ -25,23 +25,23 @@ import (
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
-	virtualmachinemigrationresourcequotav1alpha1 "kubevirt.io/managed-tenant-quota/pkg/generated/clientset/versioned/typed/core/v1alpha1"
+	mtqv1alpha1 "kubevirt.io/managed-tenant-quota/pkg/generated/clientset/versioned/typed/core/v1alpha1"
 )
 
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
-	VirtualMachineMigrationResourceQuotaV1alpha1() virtualmachinemigrationresourcequotav1alpha1.VirtualMachineMigrationResourceQuotaV1alpha1Interface
+	MtqV1alpha1() mtqv1alpha1.MtqV1alpha1Interface
 }
 
 // Clientset contains the clients for groups.
 type Clientset struct {
 	*discovery.DiscoveryClient
-	virtualMachineMigrationResourceQuotaV1alpha1 *virtualmachinemigrationresourcequotav1alpha1.VirtualMachineMigrationResourceQuotaV1alpha1Client
+	mtqV1alpha1 *mtqv1alpha1.MtqV1alpha1Client
 }
 
-// VirtualMachineMigrationResourceQuotaV1alpha1 retrieves the VirtualMachineMigrationResourceQuotaV1alpha1Client
-func (c *Clientset) VirtualMachineMigrationResourceQuotaV1alpha1() virtualmachinemigrationresourcequotav1alpha1.VirtualMachineMigrationResourceQuotaV1alpha1Interface {
-	return c.virtualMachineMigrationResourceQuotaV1alpha1
+// MtqV1alpha1 retrieves the MtqV1alpha1Client
+func (c *Clientset) MtqV1alpha1() mtqv1alpha1.MtqV1alpha1Interface {
+	return c.mtqV1alpha1
 }
 
 // Discovery retrieves the DiscoveryClient
@@ -88,7 +88,7 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*Clientset,
 
 	var cs Clientset
 	var err error
-	cs.virtualMachineMigrationResourceQuotaV1alpha1, err = virtualmachinemigrationresourcequotav1alpha1.NewForConfigAndClient(&configShallowCopy, httpClient)
+	cs.mtqV1alpha1, err = mtqv1alpha1.NewForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +113,7 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 // New creates a new Clientset for the given RESTClient.
 func New(c rest.Interface) *Clientset {
 	var cs Clientset
-	cs.virtualMachineMigrationResourceQuotaV1alpha1 = virtualmachinemigrationresourcequotav1alpha1.New(c)
+	cs.mtqV1alpha1 = mtqv1alpha1.New(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClient(c)
 	return &cs

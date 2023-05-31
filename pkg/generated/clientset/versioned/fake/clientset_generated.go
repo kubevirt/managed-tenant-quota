@@ -25,8 +25,8 @@ import (
 	fakediscovery "k8s.io/client-go/discovery/fake"
 	"k8s.io/client-go/testing"
 	clientset "kubevirt.io/managed-tenant-quota/pkg/generated/clientset/versioned"
-	virtualmachinemigrationresourcequotav1alpha1 "kubevirt.io/managed-tenant-quota/pkg/generated/clientset/versioned/typed/core/v1alpha1"
-	fakevirtualmachinemigrationresourcequotav1alpha1 "kubevirt.io/managed-tenant-quota/pkg/generated/clientset/versioned/typed/core/v1alpha1/fake"
+	mtqv1alpha1 "kubevirt.io/managed-tenant-quota/pkg/generated/clientset/versioned/typed/core/v1alpha1"
+	fakemtqv1alpha1 "kubevirt.io/managed-tenant-quota/pkg/generated/clientset/versioned/typed/core/v1alpha1/fake"
 )
 
 // NewSimpleClientset returns a clientset that will respond with the provided objects.
@@ -79,7 +79,7 @@ var (
 	_ testing.FakeClient  = &Clientset{}
 )
 
-// VirtualMachineMigrationResourceQuotaV1alpha1 retrieves the VirtualMachineMigrationResourceQuotaV1alpha1Client
-func (c *Clientset) VirtualMachineMigrationResourceQuotaV1alpha1() virtualmachinemigrationresourcequotav1alpha1.VirtualMachineMigrationResourceQuotaV1alpha1Interface {
-	return &fakevirtualmachinemigrationresourcequotav1alpha1.FakeVirtualMachineMigrationResourceQuotaV1alpha1{Fake: &c.Fake}
+// MtqV1alpha1 retrieves the MtqV1alpha1Client
+func (c *Clientset) MtqV1alpha1() mtqv1alpha1.MtqV1alpha1Interface {
+	return &fakemtqv1alpha1.FakeMtqV1alpha1{Fake: &c.Fake}
 }

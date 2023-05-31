@@ -37,8 +37,7 @@ func (tvlv *TargetVirtLauncherValidator) ServeHTTP(w http.ResponseWriter, r *htt
 		Request: in.Request,
 	}
 
-	//todo: replace to validator.Validate(tvlv.migrationInformer, tvlv.kubevirtNS, tvlv.mtqNS) once the operator is done
-	out, err := validator.Validate(tvlv.migrationInformer, tvlv.kubevirtNS, tvlv.kubevirtNS)
+	out, err := validator.Validate(tvlv.migrationInformer, tvlv.kubevirtNS, tvlv.mtqNS)
 	if err != nil {
 		e := fmt.Sprintf("could not generate admission response: %v", err)
 		log.Log.Error(err.Error())

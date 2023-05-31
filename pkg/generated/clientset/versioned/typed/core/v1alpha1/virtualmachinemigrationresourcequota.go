@@ -57,7 +57,7 @@ type virtualMachineMigrationResourceQuotas struct {
 }
 
 // newVirtualMachineMigrationResourceQuotas returns a VirtualMachineMigrationResourceQuotas
-func newVirtualMachineMigrationResourceQuotas(c *VirtualMachineMigrationResourceQuotaV1alpha1Client, namespace string) *virtualMachineMigrationResourceQuotas {
+func newVirtualMachineMigrationResourceQuotas(c *MtqV1alpha1Client, namespace string) *virtualMachineMigrationResourceQuotas {
 	return &virtualMachineMigrationResourceQuotas{
 		client: c.RESTClient(),
 		ns:     namespace,

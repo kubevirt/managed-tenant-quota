@@ -12,6 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 	virtv1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/managed-tenant-quota/pkg/mtq-operator/resources/utils"
 	"net/http"
 )
 
@@ -26,7 +27,7 @@ const (
 	reasonForAcceptedRQUpdate        = "valid ResourceQuota Update"
 	reasonForAcceptedVMMRQUpdate     = "valid VirtualMachineMigrationResourceQuota Update"
 	VirtControllerServiceAccountName = "kubevirt-controller"
-	MtqContollerServiceAccountName   = "mtq-controller"
+	MtqContollerServiceAccountName   = utils.ControllerPodName
 )
 
 func (v Validator) Validate(migrationInformer cache.SharedIndexInformer, kubevirtNS string, mtqNS string) (*admissionv1.AdmissionReview, error) {

@@ -1,12 +1,8 @@
 # Builder stage
 FROM golang:1.19-alpine as builder
 
-
 # Install make
 RUN apk update && apk add make
-
-# Set the working directory to /app
-WORKDIR /workdir
 
 # Copy the source code from the host to the container
 COPY pkg /workdir/app/pkg
@@ -16,7 +12,6 @@ COPY go.mod /workdir/app/go.mod
 COPY go.sum /workdir/app/go.sum
 COPY Makefile /workdir/app/Makefile
 
-# Set the working directory to /app/pkg/mtq-controller
 WORKDIR /workdir/app
 
 RUN make mtq_webhook
@@ -29,6 +24,9 @@ COPY --from=builder /workdir/app/mtq_webhook /app/mtq_webhook
 
 # Set the working directory to /app
 WORKDIR /app
+
+RUN adduser -u 1001 -D -s /bin/sh -h /app/mtq_webhook mtq_webhook
+USER 1001
 
 # Set the entrypoint to the binary
 ENTRYPOINT ["/app/mtq_webhook"]

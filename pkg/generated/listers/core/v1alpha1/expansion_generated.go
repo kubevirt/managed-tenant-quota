@@ -18,6 +18,10 @@ limitations under the License.
 
 package v1alpha1
 
+// MTQListerExpansion allows custom methods to be added to
+// MTQLister.
+type MTQListerExpansion interface{}
+
 // VirtualMachineMigrationResourceQuotaListerExpansion allows custom methods to be added to
 // VirtualMachineMigrationResourceQuotaLister.
 type VirtualMachineMigrationResourceQuotaListerExpansion interface{}

@@ -24,17 +24,21 @@ import (
 	v1alpha1 "kubevirt.io/managed-tenant-quota/pkg/generated/clientset/versioned/typed/core/v1alpha1"
 )
 
-type FakeVirtualMachineMigrationResourceQuotaV1alpha1 struct {
+type FakeMtqV1alpha1 struct {
 	*testing.Fake
 }
 
-func (c *FakeVirtualMachineMigrationResourceQuotaV1alpha1) VirtualMachineMigrationResourceQuotas(namespace string) v1alpha1.VirtualMachineMigrationResourceQuotaInterface {
+func (c *FakeMtqV1alpha1) MTQs() v1alpha1.MTQInterface {
+	return &FakeMTQs{c}
+}
+
+func (c *FakeMtqV1alpha1) VirtualMachineMigrationResourceQuotas(namespace string) v1alpha1.VirtualMachineMigrationResourceQuotaInterface {
 	return &FakeVirtualMachineMigrationResourceQuotas{c, namespace}
 }
 
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
-func (c *FakeVirtualMachineMigrationResourceQuotaV1alpha1) RESTClient() rest.Interface {
+func (c *FakeMtqV1alpha1) RESTClient() rest.Interface {
 	var ret *rest.RESTClient
 	return ret
 }
