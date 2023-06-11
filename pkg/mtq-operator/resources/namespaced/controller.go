@@ -15,6 +15,7 @@ import (
 
 const (
 	controllerResourceName = utils2.ControllerPodName
+	SecretResourceName     = "mtq-lock-server-cert"
 )
 
 func createMTQControllerResources(args *FactoryArgs) []client.Object {
@@ -102,7 +103,7 @@ func createMTQControllerDeployment(image, verbosity, pullPolicy string, imagePul
 			Name: "server-cert",
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
-					SecretName: "mtq-lock-server-cert",
+					SecretName: SecretResourceName,
 					Items: []corev1.KeyToPath{
 						{
 							Key:  "tls.crt",

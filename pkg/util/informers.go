@@ -58,7 +58,7 @@ func GetVirtualMachineMigrationResourceQuotaInformer(mtqCli v1alpha12.MtqV1alpha
 	return vmmrqInformer, nil
 }
 
-func GetPodInformer(virtCli kubecli.KubevirtClient) (cache.SharedIndexInformer, error) {
+func GetLauncherPodInformer(virtCli kubecli.KubevirtClient) (cache.SharedIndexInformer, error) {
 	labelSelector, err := labels.Parse(fmt.Sprintf(k6tv1.AppLabel+" in (%s)", launcherLabel))
 	if err != nil {
 		panic(err)
@@ -67,6 +67,13 @@ func GetPodInformer(virtCli kubecli.KubevirtClient) (cache.SharedIndexInformer, 
 	podInformer := cache.NewSharedIndexInformer(listWatcher, &v1.Pod{}, 1*time.Hour, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 
 	return podInformer, nil
+}
+
+func GetSecretInformer(virtCli kubecli.KubevirtClient, ns string) (cache.SharedIndexInformer, error) {
+	listWatcher := NewListWatchFromClient(virtCli.CoreV1().RESTClient(), "secrets", ns, fields.Everything(), labels.Everything())
+	secretInformer := cache.NewSharedIndexInformer(listWatcher, &v1.Secret{}, 1*time.Hour, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+
+	return secretInformer, nil
 }
 
 func GetVMIInformer(virtCli kubecli.KubevirtClient) (cache.SharedIndexInformer, error) {

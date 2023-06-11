@@ -3,7 +3,9 @@ package cert
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"kubevirt.io/managed-tenant-quota/pkg/mtq-operator/resources/namespaced"
 	"kubevirt.io/managed-tenant-quota/pkg/mtq-operator/resources/utils"
+	validation_webhook_lock "kubevirt.io/managed-tenant-quota/pkg/validation-webhook-lock"
 	"time"
 )
 
@@ -107,12 +109,12 @@ func createCertificateDefinitions() []CertificateDefinition {
 				Refresh:  24 * time.Hour,
 			},
 			CertBundleConfigmap: createConfigMap("mtq-lock-signer-bundle"),
-			TargetSecret:        createSecret("mtq-lock-server-cert"),
+			TargetSecret:        createSecret(namespaced.SecretResourceName),
 			TargetConfig: CertificateConfig{
 				Lifetime: 24 * time.Hour,
 				Refresh:  12 * time.Hour,
 			},
-			TargetService: &[]string{"mtq-lock"}[0],
+			TargetService: &[]string{validation_webhook_lock.MTQLockServerServiceName}[0],
 		},
 	}
 }

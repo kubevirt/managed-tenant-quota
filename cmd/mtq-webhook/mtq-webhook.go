@@ -2,24 +2,42 @@ package main
 
 import (
 	"context"
-	"fmt"
-	"io/ioutil"
+	"github.com/kelseyhightower/envconfig"
+	"github.com/pkg/errors"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 	"kubevirt.io/client-go/log"
-	"kubevirt.io/managed-tenant-quota/pkg/mtq-operator/resources/utils"
+	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
+	"kubevirt.io/managed-tenant-quota/pkg/mtq-operator/resources/namespaced"
 	mtq_webhook "kubevirt.io/managed-tenant-quota/pkg/mtq-webhook"
 	"kubevirt.io/managed-tenant-quota/pkg/util"
-	"net/http"
 	"os"
+	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 )
 
+const (
+	// Default port that api listens on.
+	defaultPort = 8443
+	// Default address api listens on.
+	defaultHost = "0.0.0.0"
+)
+
+var (
+	lockEnvs lockServerEnvs
+)
+
+// lockServerEnvs contains environment variables read for setting custom cert paths
+type lockServerEnvs struct {
+	TlsLabel                 string `default:"true" split_words:"true"`
+	KubevirtInstallNamespace string `default:"true" split_words:"true"`
+}
+
 func main() {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	stop := ctx.Done()
-	if err := util.CreateReadyFile(); err != nil {
-		klog.Fatalf("Error creating ready file: %+v", err)
+	defer klog.Flush()
+	mtqNS := util.GetNamespace()
+	err := envconfig.Process("", &lockEnvs)
+	if err != nil {
+		klog.Fatalf("Unable to get environment variables: %v\n", errors.WithStack(err))
 	}
 
 	virtCli, err := util.GetVirtCli()
@@ -27,50 +45,57 @@ func main() {
 		log.Log.Error(err.Error())
 		os.Exit(1)
 	}
+	ctx := signals.SetupSignalHandler()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	stop := ctx.Done()
+	if err := util.CreateReadyFile(); err != nil {
+		klog.Fatalf("Error creating ready file: %+v", err)
+	}
+
 	migrationInformer, err := util.GetMigrationInformer(virtCli)
 	if err != nil {
 		log.Log.Error(err.Error())
 		os.Exit(1)
 	}
 
-	go migrationInformer.Run(stop)
-
-	if !cache.WaitForCacheSync(stop, migrationInformer.HasSynced) {
+	secretInformer, err := util.GetSecretInformer(virtCli, mtqNS)
+	if err != nil {
+		log.Log.Error(err.Error())
 		os.Exit(1)
 	}
 
-	nsBytes, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
+	go migrationInformer.Run(stop)
+	go secretInformer.Run(stop)
+	if !cache.WaitForCacheSync(stop, migrationInformer.HasSynced, secretInformer.HasSynced) {
+		os.Exit(1)
+	}
+
+	secretCertManager := bootstrap.NewFallbackCertificateManager(
+		bootstrap.NewSecretCertificateManager(
+			namespaced.SecretResourceName,
+			mtqNS,
+			secretInformer.GetStore(),
+		),
+	)
+
+	secretCertManager.Start()
+	defer secretCertManager.Stop()
+
+	mtqServerLock, err := mtq_webhook.MTQLockServer(mtqNS,
+		lockEnvs.KubevirtInstallNamespace,
+		defaultHost,
+		defaultPort,
+		migrationInformer,
+		secretCertManager,
+	)
 	if err != nil {
-		panic(err)
+		klog.Fatalf("UploadProxy failed to initialize: %v\n", errors.WithStack(err))
 	}
-	mtqNS := string(nsBytes)
 
-	// handle our core application
-	http.Handle("/validate-pods", mtq_webhook.NewTargetLauncherValidator(migrationInformer, os.Getenv(utils.KubevirtInstallNamespace), mtqNS))
-	http.HandleFunc("/health", ServeHealth)
-	// start the server
-	// listens to clear text http on port 8080 unless TLS env var is set to "true"
-	if os.Getenv(utils.TlsLabel) == "true" { //todo: make sure tls.crt and tls.key are updated after refresh time
-		cert := "/etc/admission-webhook/tls/tls.crt"
-		key := "/etc/admission-webhook/tls/tls.key"
-		log.Log.Infof("Listening on port 8443...")
-		err := http.ListenAndServeTLS(":8443", cert, key, nil)
-		if err != nil {
-			log.Log.Error(err.Error())
-			os.Exit(1)
-		}
-	} else {
-		log.Log.Infof("Listening on port 8080...")
-		err := http.ListenAndServe(":8080", nil)
-		if err != nil {
-			log.Log.Error(err.Error())
-			os.Exit(1)
-
-		}
+	err = mtqServerLock.Start()
+	if err != nil {
+		klog.Fatalf("TLS server failed: %v\n", errors.WithStack(err))
 	}
-}
 
-// ServeHealth returns 200 when things are good
-func ServeHealth(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprint(w, "OK")
 }

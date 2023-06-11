@@ -423,7 +423,7 @@ func Run(threadiness int, stop <-chan struct{}) error {
 	if err != nil {
 		os.Exit(1)
 	}
-	podInformer, err := util.GetPodInformer(virtCli)
+	podInformer, err := util.GetLauncherPodInformer(virtCli)
 	if err != nil {
 		os.Exit(1)
 	}

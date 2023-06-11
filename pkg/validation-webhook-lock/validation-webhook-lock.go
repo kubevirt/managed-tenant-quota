@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	mtqLockServerServiceName = "mtq-lock"
+	MTQLockServerServiceName = "mtq-lock"
 )
 
 func LockNamespace(nsToLock string, mtqNS string, cli kubecli.KubevirtClient, caBundle []byte) error {
@@ -140,7 +140,7 @@ func getLockingValidatingWebhook(mtqNs string, nsToLock string, caBundle []byte)
 		ClientConfig: v13.WebhookClientConfig{
 			Service: &v13.ServiceReference{
 				Namespace: mtqNs,
-				Name:      mtqLockServerServiceName,
+				Name:      MTQLockServerServiceName,
 				Path:      &path,
 				Port:      &port,
 			},

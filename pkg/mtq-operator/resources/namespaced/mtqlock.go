@@ -2,6 +2,7 @@ package namespaced
 
 import (
 	"fmt"
+	rbacv1 "k8s.io/api/rbac/v1"
 	utils2 "kubevirt.io/managed-tenant-quota/pkg/mtq-operator/resources/utils"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -19,6 +20,8 @@ const (
 
 func createMTQLockResources(args *FactoryArgs) []client.Object {
 	return []client.Object{
+		createMTQlockRole(),
+		createMTQLockRoleBinding(),
 		createMTQLockServiceAccount(),
 		createMTQLockService(),
 		createMTQLockDeployment(args.MTQLockImage, args.KVNamespace, args.PullPolicy, args.ImagePullSecrets, args.PriorityClassName, args.Verbosity, args.InfraNodePlacement),
@@ -84,8 +87,13 @@ func createMTQLockDeployment(image, kvNs string, pullPolicy string, imagePullSec
 	}
 	container.ReadinessProbe = &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{
-			Exec: &corev1.ExecAction{
-				Command: []string{"cat", "/tmp/ready"},
+			HTTPGet: &corev1.HTTPGetAction{
+				Path: "/healthz",
+				Port: intstr.IntOrString{
+					Type:   intstr.Int,
+					IntVal: 8443,
+				},
+				Scheme: corev1.URISchemeHTTPS,
 			},
 		},
 		InitialDelaySeconds: 2,
@@ -114,7 +122,7 @@ func createMTQLockDeployment(image, kvNs string, pullPolicy string, imagePullSec
 			Name: "tls",
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
-					SecretName:  "mtq-lock-server-cert",
+					SecretName:  SecretResourceName,
 					DefaultMode: &defaultMode,
 				},
 			},
@@ -130,4 +138,26 @@ func createMTQLockPorts() []corev1.ContainerPort {
 			Protocol:      "TCP",
 		},
 	}
+}
+
+func createMTQLockRoleBinding() *rbacv1.RoleBinding {
+	return utils2.ResourceBuilder.CreateRoleBinding(mtqLockResourceName, mtqLockResourceName, mtqLockResourceName, "")
+}
+func createMTQlockRole() *rbacv1.Role {
+	rules := []rbacv1.PolicyRule{
+		{
+			APIGroups: []string{
+				"",
+			},
+			Resources: []string{
+				"secrets",
+			},
+			Verbs: []string{
+				"get",
+				"list",
+				"watch",
+			},
+		},
+	}
+	return utils2.ResourceBuilder.CreateRole(mtqLockResourceName, rules)
 }
