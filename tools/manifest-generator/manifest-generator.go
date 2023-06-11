@@ -31,7 +31,7 @@ type templateData struct {
 	DeployClusterResources string
 	OperatorImage          string
 	ControllerImage        string
-	MTQWebhookImage        string
+	MTQLockServerImage     string
 	ClonerImage            string
 	APIServerImage         string
 	UploadProxyImage       string
@@ -51,7 +51,7 @@ var (
 	deployClusterResources = flag.String("deploy-cluster-resources", "", "")
 	operatorImage          = flag.String("operator-image", "", "")
 	controllerImage        = flag.String("controller-image", "", "")
-	mtqWebhookImage        = flag.String("mtq-webhook-image", "", "")
+	mtqLockServerImage     = flag.String("mtq-lock-server-image", "", "")
 	clonerImage            = flag.String("cloner-image", "", "")
 	apiServerImage         = flag.String("apiserver-image", "", "")
 	uploadProxyImage       = flag.String("uploadproxy-image", "", "")
@@ -96,7 +96,7 @@ func generateFromFile(templFile string) {
 		DeployClusterResources: *deployClusterResources,
 		OperatorImage:          *operatorImage,
 		ControllerImage:        *controllerImage,
-		MTQWebhookImage:        *mtqWebhookImage,
+		MTQLockServerImage:     *mtqLockServerImage,
 		ClonerImage:            *clonerImage,
 		APIServerImage:         *apiServerImage,
 		UploadProxyImage:       *uploadProxyImage,
@@ -172,7 +172,7 @@ func getOperatorResources(resourceGroup string) ([]client.Object, error) {
 			OperatorVersion:        *operatorVersion,
 			DeployClusterResources: *deployClusterResources,
 			ControllerImage:        *controllerImage,
-			MTQLockImage:           *mtqWebhookImage,
+			MTQLockServerImage:     *mtqLockServerImage,
 			PullPolicy:             *pullPolicy,
 			Namespace:              *namespace,
 		},
@@ -184,12 +184,12 @@ func getOperatorResources(resourceGroup string) ([]client.Object, error) {
 
 func getNamespacedResources(codeGroup string) ([]client.Object, error) {
 	args := &mtqnamespaced.FactoryArgs{
-		Verbosity:       *verbosity,
-		OperatorVersion: *operatorVersion,
-		ControllerImage: *controllerImage,
-		MTQLockImage:    *mtqWebhookImage,
-		PullPolicy:      *pullPolicy,
-		Namespace:       *namespace,
+		Verbosity:          *verbosity,
+		OperatorVersion:    *operatorVersion,
+		ControllerImage:    *controllerImage,
+		MTQLockServerImage: *mtqLockServerImage,
+		PullPolicy:         *pullPolicy,
+		Namespace:          *namespace,
 	}
 
 	return mtqnamespaced.CreateResourceGroup(codeGroup, args)

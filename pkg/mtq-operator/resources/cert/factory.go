@@ -5,7 +5,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"kubevirt.io/managed-tenant-quota/pkg/mtq-operator/resources/namespaced"
 	"kubevirt.io/managed-tenant-quota/pkg/mtq-operator/resources/utils"
-	validation_webhook_lock "kubevirt.io/managed-tenant-quota/pkg/validation-webhook-lock"
+	validation_webhook_lock "kubevirt.io/managed-tenant-quota/pkg/validating-webhook-lock"
 	"time"
 )
 

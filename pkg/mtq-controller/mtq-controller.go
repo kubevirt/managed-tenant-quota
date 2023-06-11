@@ -34,7 +34,7 @@ import (
 	v1alpha13 "kubevirt.io/managed-tenant-quota/pkg/generated/clientset/versioned/typed/core/v1alpha1"
 	"kubevirt.io/managed-tenant-quota/pkg/mtq-operator/resources/utils"
 	"kubevirt.io/managed-tenant-quota/pkg/util"
-	webhooklock "kubevirt.io/managed-tenant-quota/pkg/validation-webhook-lock"
+	webhooklock "kubevirt.io/managed-tenant-quota/pkg/validating-webhook-lock"
 	"os"
 	"reflect"
 	"strings"

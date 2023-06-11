@@ -14,19 +14,19 @@ COPY Makefile /workdir/app/Makefile
 
 WORKDIR /workdir/app
 
-RUN make mtq_webhook
+RUN make mtq_lock_server
 
 # Final stage
 FROM golang:1.19-alpine
 
 # Copy the binary from the builder stage to the final image
-COPY --from=builder /workdir/app/mtq_webhook /app/mtq_webhook
+COPY --from=builder /workdir/app/mtq_lock_server /app/mtq_lock_server
 
 # Set the working directory to /app
 WORKDIR /app
 
-RUN adduser -u 1001 -D -s /bin/sh -h /app/mtq_webhook mtq_webhook
+RUN adduser -u 1001 -D -s /bin/sh -h /app/mtq_lock_server mtq_lock_server
 USER 1001
 
 # Set the entrypoint to the binary
-ENTRYPOINT ["/app/mtq_webhook"]
+ENTRYPOINT ["/app/mtq_lock_server"]

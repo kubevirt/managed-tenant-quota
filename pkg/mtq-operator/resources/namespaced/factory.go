@@ -14,7 +14,7 @@ type FactoryArgs struct {
 	OperatorVersion        string `required:"true" split_words:"true"`
 	ControllerImage        string `required:"true" split_words:"true"`
 	DeployClusterResources string `required:"true" split_words:"true"`
-	MTQLockImage           string `required:"true" split_words:"true"`
+	MTQLockServerImage     string `required:"true" split_words:"true"`
 	Verbosity              string `required:"true"`
 	PullPolicy             string `required:"true" split_words:"true"`
 	ImagePullSecrets       []corev1.LocalObjectReference

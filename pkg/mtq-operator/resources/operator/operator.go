@@ -239,7 +239,7 @@ func createDeployment(args *FactoryArgs) []client.Object {
 			args.NamespacedArgs.DeployClusterResources,
 			args.Image,
 			args.NamespacedArgs.ControllerImage,
-			args.NamespacedArgs.MTQLockImage,
+			args.NamespacedArgs.MTQLockServerImage,
 			args.NamespacedArgs.Verbosity,
 			args.NamespacedArgs.PullPolicy,
 			args.NamespacedArgs.ImagePullSecrets),
@@ -272,7 +272,7 @@ func createOperatorEnvVar(operatorVersion, deployClusterResources, controllerIma
 			Value: controllerImage,
 		},
 		{
-			Name:  "MTQ_LOCK_IMAGE",
+			Name:  "MTQ_LOCK_SERVER_IMAGE",
 			Value: webhookServerImage,
 		},
 		{

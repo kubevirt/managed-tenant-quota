@@ -2,7 +2,7 @@
 examples
 mtq_controller
 mtq_operator
-mtq_webhook
+mtq_lock_server
 tmp
 pod.yaml
 create5vmis

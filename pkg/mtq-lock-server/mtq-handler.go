@@ -1,4 +1,4 @@
-package mtq_webhook
+package mtq_lock_server
 
 import (
 	"bytes"
@@ -7,7 +7,7 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/client-go/tools/cache"
 	"kubevirt.io/client-go/log"
-	"kubevirt.io/managed-tenant-quota/pkg/mtq-webhook/validation"
+	"kubevirt.io/managed-tenant-quota/pkg/mtq-lock-server/validation"
 	"net/http"
 )
 

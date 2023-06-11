@@ -8,8 +8,8 @@ import (
 	"k8s.io/klog/v2"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
+	"kubevirt.io/managed-tenant-quota/pkg/mtq-lock-server"
 	"kubevirt.io/managed-tenant-quota/pkg/mtq-operator/resources/namespaced"
-	mtq_webhook "kubevirt.io/managed-tenant-quota/pkg/mtq-webhook"
 	"kubevirt.io/managed-tenant-quota/pkg/util"
 	"os"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
@@ -82,7 +82,7 @@ func main() {
 	secretCertManager.Start()
 	defer secretCertManager.Stop()
 
-	mtqServerLock, err := mtq_webhook.MTQLockServer(mtqNS,
+	mtqLockServer, err := mtq_lock_server.MTQLockServer(mtqNS,
 		lockEnvs.KubevirtInstallNamespace,
 		defaultHost,
 		defaultPort,
@@ -93,7 +93,7 @@ func main() {
 		klog.Fatalf("UploadProxy failed to initialize: %v\n", errors.WithStack(err))
 	}
 
-	err = mtqServerLock.Start()
+	err = mtqLockServer.Start()
 	if err != nil {
 		klog.Fatalf("TLS server failed: %v\n", errors.WithStack(err))
 	}

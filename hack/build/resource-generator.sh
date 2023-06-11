@@ -39,7 +39,7 @@ function generateResourceManifest() {
             -deploy-cluster-resources="true" \
             -operator-image="${DOCKER_PREFIX}/${OPERATOR_IMAGE_NAME}:${DOCKER_TAG}" \
             -controller-image="${DOCKER_PREFIX}/${CONTROLLER_IMAGE_NAME}:${DOCKER_TAG}" \
-            -mtq-webhook-image="${DOCKER_PREFIX}/${MTQ_LOCK_IMAGE_NAME}:${DOCKER_TAG}" \
+            -mtq-lock-server-image="${DOCKER_PREFIX}/${MTQ_LOCK_SERVER_IMAGE_NAME}:${DOCKER_TAG}" \
             -verbosity="${VERBOSITY}" \
             -pull-policy="${PULL_POLICY}" \
             -namespace="${MTQ_NAMESPACE}"
@@ -54,7 +54,7 @@ function generateResourceManifest() {
             -deploy-cluster-resources="true" \
             -operator-image="{{ operator_image_name }}" \
             -controller-image="{{ controller_image }}" \
-            -mtq-webhook-image="{{ mtq_lock_image }}" \
+            -mtq-lock-server-image="{{ mtq_lock_server_image }}" \
             -verbosity="${VERBOSITY}" \
             -pull-policy="{{ pull_policy }}" \
             -namespace="{{ mtq_namespace }}"
@@ -113,7 +113,7 @@ function populateResourceManifest() {
             -deploy-cluster-resources="true" \
             -operator-image="${DOCKER_PREFIX}/${OPERATOR_IMAGE_NAME}:${DOCKER_TAG}" \
             -controller-image="${DOCKER_PREFIX}/${CONTROLLER_IMAGE_NAME}:${DOCKER_TAG}" \
-            -mtq-webhook-image="${DOCKER_PREFIX}/${MTQ_LOCK_IMAGE_NAME}:${DOCKER_TAG}" \
+            -mtq-lock-server-image="${DOCKER_PREFIX}/${MTQ_LOCK_SERVER_IMAGE_NAME}:${DOCKER_TAG}" \
             -verbosity="${VERBOSITY}" \
             -pull-policy="${PULL_POLICY}" \
             -cr-name="${CR_NAME}" \
@@ -129,7 +129,7 @@ function populateResourceManifest() {
             -deploy-cluster-resources="true" \
             -operator-image="{{ operator_image_name }}" \
             -controller-image="{{ controller_image }}" \
-            -mtq-webhook-image="{{ mtq_lock_image }}" \
+            -mtq-lock-server-image="{{ mtq_lock_server_image }}" \
             -verbosity="${VERBOSITY}" \
             -pull-policy="{{ pull_policy }}" \
             -namespace="{{ mtq_namespace }}" \

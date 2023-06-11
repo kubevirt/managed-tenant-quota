@@ -24,7 +24,7 @@ func createMTQLockResources(args *FactoryArgs) []client.Object {
 		createMTQLockRoleBinding(),
 		createMTQLockServiceAccount(),
 		createMTQLockService(),
-		createMTQLockDeployment(args.MTQLockImage, args.KVNamespace, args.PullPolicy, args.ImagePullSecrets, args.PriorityClassName, args.Verbosity, args.InfraNodePlacement),
+		createMTQLockDeployment(args.MTQLockServerImage, args.KVNamespace, args.PullPolicy, args.ImagePullSecrets, args.PriorityClassName, args.Verbosity, args.InfraNodePlacement),
 	}
 }
 

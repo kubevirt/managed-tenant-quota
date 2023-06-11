@@ -1,4 +1,4 @@
-package validation_webhook_lock
+package validating_webhook_lock
 
 import (
 	"context"
@@ -20,7 +20,7 @@ func LockNamespace(nsToLock string, mtqNS string, cli kubecli.KubevirtClient, ca
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "lock." + nsToLock + ".com",
 			Labels: map[string]string{
-				"mtq-webhook": "mtq-webhook",
+				"mtq-lock-server": "mtq-lock-server",
 			},
 		},
 		Webhooks: []v13.ValidatingWebhook{getLockingValidatingWebhook(mtqNS, nsToLock, caBundle)},

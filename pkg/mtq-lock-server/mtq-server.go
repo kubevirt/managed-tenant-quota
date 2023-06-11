@@ -1,4 +1,4 @@
-package mtq_webhook
+package mtq_lock_server
 
 import (
 	"fmt"
