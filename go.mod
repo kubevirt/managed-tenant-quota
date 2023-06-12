@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	k8s.io/apimachinery v0.27.1
-	k8s.io/code-generator v0.27.1
+	k8s.io/code-generator v0.26.3
 )
 
 require (
@@ -22,13 +22,11 @@ require (
 	github.com/go-openapi/spec v0.20.3 // indirect
 	github.com/go-openapi/swag v0.22.3 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
-	github.com/google/gnostic v0.5.7-v3refs // indirect
 	github.com/googleapis/gnostic v0.5.5 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/onsi/gomega v1.27.6 // indirect
 	github.com/robfig/cron v1.2.0 // indirect
-	github.com/rogpeppe/go-internal v1.10.0 // indirect
 	golang.org/x/mod v0.10.0 // indirect
 	golang.org/x/tools v0.8.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.2.0 // indirect
@@ -80,7 +78,7 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
-	github.com/openshift/api v0.0.0
+	github.com/openshift/api v0.0.0 // indirect
 	github.com/openshift/client-go v0.0.0 // indirect
 	github.com/openshift/custom-resource-status v1.1.2 // indirect
 	github.com/pborman/uuid v1.2.0 // indirect

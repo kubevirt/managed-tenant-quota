@@ -6,7 +6,7 @@ var MTQCRDs map[string]string = map[string]string{
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.12.0
+    controller-gen.kubebuilder.io/version: v0.11.3
   creationTimestamp: null
   name: mtqs.mtq.kubevirt.io
 spec:
@@ -2008,7 +2008,7 @@ status:
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.12.0
+    controller-gen.kubebuilder.io/version: v0.11.3
   creationTimestamp: null
   name: virtualmachinemigrationresourcequotas.mtq.kubevirt.io
 spec:

@@ -23,6 +23,7 @@ import (
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
+	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
@@ -34,9 +35,9 @@ type FakeMTQs struct {
 	Fake *FakeMtqV1alpha1
 }
 
-var mtqsResource = v1alpha1.SchemeGroupVersion.WithResource("mtqs")
+var mtqsResource = schema.GroupVersionResource{Group: "mtq.kubevirt.io", Version: "v1alpha1", Resource: "mtqs"}
 
-var mtqsKind = v1alpha1.SchemeGroupVersion.WithKind("MTQ")
+var mtqsKind = schema.GroupVersionKind{Group: "mtq.kubevirt.io", Version: "v1alpha1", Kind: "MTQ"}
 
 // Get takes name of the mTQ, and returns the corresponding mTQ object, and an error if there is any.
 func (c *FakeMTQs) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.MTQ, err error) {
