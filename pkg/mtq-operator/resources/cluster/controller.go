@@ -53,6 +53,32 @@ func getControllerClusterPolicyRules() []rbacv1.PolicyRule {
 				"",
 			},
 			Resources: []string{
+				"persistentvolumeclaims",
+			},
+			Verbs: []string{
+				"list",
+				"watch",
+				"get",
+			},
+		},
+		{
+			APIGroups: []string{
+				"apiextensions.k8s.io",
+			},
+			Resources: []string{
+				"customresourcedefinitions",
+			},
+			Verbs: []string{
+				"list",
+				"watch",
+				"get",
+			},
+		},
+		{
+			APIGroups: []string{
+				"",
+			},
+			Resources: []string{
 				"resourcequotas",
 			},
 			Verbs: []string{
@@ -84,6 +110,18 @@ func getControllerClusterPolicyRules() []rbacv1.PolicyRule {
 			},
 			Verbs: []string{
 				"update",
+			},
+		},
+		{
+			APIGroups: []string{
+				"kubevirt.io",
+			},
+			Resources: []string{
+				"kubevirts",
+			},
+			Verbs: []string{
+				"list",
+				"watch",
 			},
 		},
 		{

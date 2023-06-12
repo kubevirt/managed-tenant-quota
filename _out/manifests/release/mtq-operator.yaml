@@ -2063,13 +2063,6 @@ rules:
   - list
   - watch
 - apiGroups:
-  - kubevirt.io
-  resources:
-  - kubevirts
-  verbs:
-  - list
-  - watch
-- apiGroups:
   - ""
   resources:
   - events
@@ -2122,6 +2115,13 @@ rules:
   - virtualmachinemigrationresourcequotas/status
   verbs:
   - update
+- apiGroups:
+  - kubevirt.io
+  resources:
+  - kubevirts
+  verbs:
+  - list
+  - watch
 - apiGroups:
   - kubevirt.io
   resources:

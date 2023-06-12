@@ -53,17 +53,8 @@ func main() {
 		klog.Fatalf("Error creating ready file: %+v", err)
 	}
 
-	migrationInformer, err := util.GetMigrationInformer(virtCli)
-	if err != nil {
-		log.Log.Error(err.Error())
-		os.Exit(1)
-	}
-
-	secretInformer, err := util.GetSecretInformer(virtCli, mtqNS)
-	if err != nil {
-		log.Log.Error(err.Error())
-		os.Exit(1)
-	}
+	migrationInformer := util.GetMigrationInformer(virtCli)
+	secretInformer := util.GetSecretInformer(virtCli, mtqNS)
 
 	go migrationInformer.Run(stop)
 	go secretInformer.Run(stop)

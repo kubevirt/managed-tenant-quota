@@ -253,7 +253,7 @@ func getKVNS() string {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	stop := ctx.Done()
-	kubevirtInformer, err := util.KubeVirtInformer(virtCli)
+	kubevirtInformer := util.KubeVirtInformer(virtCli)
 	go kubevirtInformer.Run(stop)
 	if err != nil {
 		log.Error(err, "")

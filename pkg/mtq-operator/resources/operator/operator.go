@@ -114,18 +114,6 @@ func getClusterPolicyRules() []rbacv1.PolicyRule {
 				"watch",
 			},
 		},
-		{
-			APIGroups: []string{
-				"kubevirt.io",
-			},
-			Resources: []string{
-				"kubevirts",
-			},
-			Verbs: []string{
-				"list",
-				"watch",
-			},
-		},
 	}
 	rules = append(rules, cluster.GetClusterRolePolicyRules()...)
 	return rules

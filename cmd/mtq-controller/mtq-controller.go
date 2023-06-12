@@ -16,7 +16,7 @@ func main() {
 		klog.Fatalf("Error creating ready file: %+v", err)
 	}
 	if err := mtq_controller.Run(3, stop); err != nil {
-		log.Log.Warningf("error running the clone controller: %v", err)
+		log.Log.Warningf("error running the mtq controller: %v", err)
 	}
 	util.DeleteReadyFile()
 

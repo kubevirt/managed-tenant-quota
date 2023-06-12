@@ -10,7 +10,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	k8sadmission "k8s.io/apiserver/pkg/admission"
@@ -22,7 +21,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
-	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/quota/v1/evaluator/core"
 	"k8s.io/utils/clock"
 	v1alpha1 "kubevirt.io/api/core/v1"
@@ -30,12 +28,13 @@ import (
 	"kubevirt.io/client-go/log"
 	corev1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"kubevirt.io/containerized-data-importer/pkg/util/cert/fetcher"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	v1alpha12 "kubevirt.io/managed-tenant-quota/pkg/apis/core/v1alpha1"
 	v1alpha13 "kubevirt.io/managed-tenant-quota/pkg/generated/clientset/versioned/typed/core/v1alpha1"
 	"kubevirt.io/managed-tenant-quota/pkg/mtq-operator/resources/utils"
 	"kubevirt.io/managed-tenant-quota/pkg/util"
 	webhooklock "kubevirt.io/managed-tenant-quota/pkg/validating-webhook-lock"
-	"os"
 	"reflect"
 	"strings"
 	"sync"
@@ -71,9 +70,19 @@ type ManagedQuotaController struct {
 	recorder              record.EventRecorder
 	podEvaluator          v12.Evaluator
 	serverBundleFetcher   *fetcher.ConfigMapCertBundleFetcher
+	templateSvc           services.TemplateService
 }
 
-func NewManagedQuotaController(virtCli kubecli.KubevirtClient, mtqNs string, mtqCli v1alpha13.MtqV1alpha1Client, migrationInformer cache.SharedIndexInformer, podInformer cache.SharedIndexInformer, resourceQuotaInformer cache.SharedIndexInformer, vmmrqInformer cache.SharedIndexInformer, vmiInformer cache.SharedIndexInformer, serverBundleFetcher *fetcher.ConfigMapCertBundleFetcher) *ManagedQuotaController {
+func NewManagedQuotaController(virtCli kubecli.KubevirtClient,
+	mtqNs string, mtqCli v1alpha13.MtqV1alpha1Client,
+	migrationInformer cache.SharedIndexInformer,
+	podInformer cache.SharedIndexInformer,
+	resourceQuotaInformer cache.SharedIndexInformer,
+	vmmrqInformer cache.SharedIndexInformer,
+	vmiInformer cache.SharedIndexInformer,
+	serverBundleFetcher *fetcher.ConfigMapCertBundleFetcher,
+	templateSvc services.TemplateService,
+) *ManagedQuotaController {
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartRecordingToSink(&v14.EventSinkImpl{Interface: virtCli.CoreV1().Events(v1.NamespaceAll)})
 
@@ -93,23 +102,18 @@ func NewManagedQuotaController(virtCli kubecli.KubevirtClient, mtqNs string, mtq
 		nsCache:               NewNamespaceCache(),
 		recorder:              eventBroadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: utils.ControllerPodName}),
 		podEvaluator:          core.NewPodEvaluator(nil, clock.RealClock{}),
+		templateSvc:           templateSvc,
 	}
 
-	_, err := ctrl.migrationInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	ctrl.migrationInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		DeleteFunc: ctrl.deleteMigration,
 		UpdateFunc: ctrl.updateMigration,
 	})
-	if err != nil {
-		return nil
-	}
-	_, err = ctrl.vmmrqInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+
+	ctrl.vmmrqInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    ctrl.addVmmrq,
 		UpdateFunc: ctrl.updateVmmrq,
 	})
-
-	if err != nil {
-		return nil
-	}
 
 	return &ctrl
 }
@@ -272,11 +276,11 @@ func (ctrl *ManagedQuotaController) execute(key string) (error, enqueueState) {
 		delete(vmmrq.Status.MigrationsToBlockingResourceQuotas, migrationName)
 	} else if isBlockedMigration {
 		finalEnqueueState = Immediate
-		sourcePod, err := CurrentVMIPod(vmi, ctrl.podInformer)
+		targetPod, err := ctrl.templateSvc.RenderLaunchManifest(vmi)
 		if err != nil {
 			return err, Immediate
 		}
-		currBlockingRQList, err := ctrl.getCurrBlockingRQInNS(vmmrq, migration, sourcePod, vmmrq.Status.AdditionalMigrationResources)
+		currBlockingRQList, err := ctrl.getCurrBlockingRQInNS(vmmrq, migration, targetPod, vmmrq.Status.AdditionalMigrationResources)
 		if err != nil {
 			return err, Immediate
 		} else if len(currBlockingRQList) == 0 {
@@ -408,58 +412,89 @@ func Run(threadiness int, stop <-chan struct{}) error {
 	defer utilruntime.HandleCrash()
 	nsBytes, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
 	if err != nil {
-		panic(err)
+		return err
 	}
 	mtqNs := string(nsBytes)
 	virtCli, err := util.GetVirtCli()
 	if err != nil {
-		return nil
-	}
-	mtqCli, err := util.GetMTQCli()
-	if err != nil {
-		klog.Fatalf("Unable to get mtqCli \n")
-	}
-	migrationInformer, err := util.GetMigrationInformer(virtCli)
-	if err != nil {
-		os.Exit(1)
-	}
-	podInformer, err := util.GetLauncherPodInformer(virtCli)
-	if err != nil {
-		os.Exit(1)
+		return err
 	}
 
-	resourceQuotaInformer, err := util.GetResourceQuotaInformer(virtCli)
-	if err != nil {
-		os.Exit(1)
-	}
-	vmiInformer, err := util.GetVMIInformer(virtCli)
-	if err != nil {
-		os.Exit(1)
-	}
+	mtqCli := util.GetMTQCli()
+	migrationInformer := util.GetMigrationInformer(virtCli)
+	podInformer := util.GetLauncherPodInformer(virtCli)
+	resourceQuotaInformer := util.GetResourceQuotaInformer(virtCli)
+	vmiInformer := util.GetVMIInformer(virtCli)
+	virtualMachineMigrationResourceQuotaInformer := util.GetVirtualMachineMigrationResourceQuotaInformer(mtqCli)
+	kubeVirtInformer := util.KubeVirtInformer(virtCli)
+	crdInformer := util.CRDInformer(virtCli)
+	pvcInformer := util.PersistentVolumeClaim(virtCli)
 
-	virtualMachineMigrationResourceQuotaInformer, err := util.GetVirtualMachineMigrationResourceQuotaInformer(mtqCli)
-	if err != nil {
-		os.Exit(1)
-	}
 	go migrationInformer.Run(stop)
 	go podInformer.Run(stop)
 	go resourceQuotaInformer.Run(stop)
 	go virtualMachineMigrationResourceQuotaInformer.Run(stop)
 	go vmiInformer.Run(stop)
+	go kubeVirtInformer.Run(stop)
+	go crdInformer.Run(stop)
+	go pvcInformer.Run(stop)
 
 	serverBundleFetcher := &fetcher.ConfigMapCertBundleFetcher{
 		Name:   "mtq-lock-signer-bundle",
 		Client: virtCli.CoreV1().ConfigMaps(mtqNs),
 	}
 
-	ctrl := NewManagedQuotaController(virtCli, mtqNs, mtqCli, migrationInformer, podInformer, resourceQuotaInformer, virtualMachineMigrationResourceQuotaInformer, vmiInformer, serverBundleFetcher)
+	if !cache.WaitForCacheSync(stop,
+		migrationInformer.HasSynced,
+		podInformer.HasSynced,
+		resourceQuotaInformer.HasSynced,
+		virtualMachineMigrationResourceQuotaInformer.HasSynced,
+		vmiInformer.HasSynced,
+		kubeVirtInformer.HasSynced,
+		crdInformer.HasSynced,
+		pvcInformer.HasSynced,
+	) {
+		return fmt.Errorf("failed to wait for caches to sync")
+	}
+
+	objs := kubeVirtInformer.GetIndexer().List()
+	if len(objs) != 1 {
+		return fmt.Errorf("single KV object should exist in the cluster")
+	}
+	kv := (objs[0]).(*v1alpha1.KubeVirt)
+
+	clusterConfig := virtconfig.NewClusterConfig(crdInformer, kubeVirtInformer, kv.Namespace)
+
+	fakeVal := "NotImportantWeJustNeedTheTargetResources"
+	templateSvc := services.NewTemplateService(fakeVal,
+		240,
+		fakeVal,
+		fakeVal,
+		fakeVal,
+		fakeVal,
+		fakeVal,
+		fakeVal,
+		pvcInformer.GetStore(),
+		virtCli,
+		clusterConfig,
+		107,
+		fakeVal,
+	)
+
+	ctrl := NewManagedQuotaController(virtCli,
+		mtqNs,
+		mtqCli,
+		migrationInformer,
+		podInformer,
+		resourceQuotaInformer,
+		virtualMachineMigrationResourceQuotaInformer,
+		vmiInformer,
+		serverBundleFetcher,
+		templateSvc,
+	)
 
 	log.Log.Info("Starting Managed Quota controller")
 	defer log.Log.Info("Shutting down Managed Quota controller")
-
-	if !cache.WaitForCacheSync(stop, ctrl.migrationInformer.HasSynced, ctrl.podInformer.HasSynced, ctrl.resourceQuotaInformer.HasSynced, virtualMachineMigrationResourceQuotaInformer.HasSynced, vmiInformer.HasSynced) {
-		return fmt.Errorf("failed to wait for caches to sync")
-	}
 
 	for i := 0; i < threadiness; i++ {
 		go wait.Until(ctrl.runWorker, time.Second, stop)
@@ -468,66 +503,6 @@ func Run(threadiness int, stop <-chan struct{}) error {
 	<-stop
 	return nil
 
-}
-
-func CurrentVMIPod(vmi *v1alpha1.VirtualMachineInstance, podInformer cache.SharedIndexInformer) (*v1.Pod, error) {
-	// current pod is the most recent pod created on the current VMI node
-	// OR the most recent pod created if no VMI node is set.
-	// Get all pods from the namespace
-	objs, err := podInformer.GetIndexer().ByIndex(cache.NamespaceIndex, vmi.Namespace)
-	if err != nil {
-		return nil, err
-	}
-	pods := []*v1.Pod{}
-	for _, obj := range objs {
-		pod := obj.(*v1.Pod)
-		pods = append(pods, pod)
-	}
-
-	var curPod *v1.Pod = nil
-	for _, pod := range pods {
-		if !IsControlledBy(pod, vmi) {
-			continue
-		}
-
-		if vmi.Status.NodeName != "" &&
-			vmi.Status.NodeName != pod.Spec.NodeName {
-			// This pod isn't scheduled to the current node.
-			// This can occur during the initial migration phases when
-			// a new target node is being prepared for the VMI.
-			continue
-		}
-
-		if curPod == nil || curPod.CreationTimestamp.Before(&pod.CreationTimestamp) {
-			curPod = pod
-		}
-	}
-
-	return curPod, nil
-}
-
-func IsControlledBy(pod *v1.Pod, vmi *v1alpha1.VirtualMachineInstance) bool {
-	if controllerRef := GetControllerOf(pod); controllerRef != nil {
-		return controllerRef.UID == vmi.UID
-	}
-	return false
-}
-
-// GetControllerOf returns the controllerRef if controllee has a controller,
-// otherwise returns nil.
-func GetControllerOf(pod *v1.Pod) *metav1.OwnerReference {
-	controllerRef := metav1.GetControllerOf(pod)
-	if controllerRef != nil {
-		return controllerRef
-	}
-	// We may find pods that are only using CreatedByLabel and not set with an OwnerReference
-	if createdBy := pod.Labels[v1alpha1.CreatedByLabel]; len(createdBy) > 0 {
-		name := pod.Annotations[v1alpha1.DomainAnnotation]
-		uid := types.UID(createdBy)
-		vmi := v1alpha1.NewVMI(name, uid)
-		return metav1.NewControllerRef(vmi, v1alpha1.VirtualMachineInstanceGroupVersionKind)
-	}
-	return nil
 }
 
 func listMatchingTargetPods(migration *v1alpha1.VirtualMachineInstanceMigration, vmi *v1alpha1.VirtualMachineInstance, podInformer cache.SharedIndexInformer) ([]*v1.Pod, error) {
