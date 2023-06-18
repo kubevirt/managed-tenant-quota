@@ -48,6 +48,12 @@ builder-push:
 generate:
 	${DO_BAZ} "./hack/update-codegen.sh"
 
+cluster-up:
+	./cluster-up/up.sh
+
+cluster-down:
+	./cluster-up/down.sh
+
 mtq_controller:
 	go build -o mtq_controller -v cmd/mtq-controller/*.go
 	chmod 777 mtq_controller

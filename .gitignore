@@ -7,5 +7,5 @@ tmp
 pod.yaml
 create5vmis
 delete5vmis
-controller-cp.go
+_ci-configs/*
 
