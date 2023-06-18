@@ -16,8 +16,8 @@ import (
 	"k8s.io/klog/v2"
 	k6tv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/managed-tenant-quota/pkg/apis/core/v1alpha1"
 	v1alpha12 "kubevirt.io/managed-tenant-quota/pkg/generated/clientset/versioned/typed/core/v1alpha1"
+	v1alpha13 "kubevirt.io/managed-tenant-quota/staging/src/kubevirt.io/managed-tenant-quota-api/pkg/apis/core/v1alpha1"
 	"time"
 )
 
@@ -53,7 +53,7 @@ func GetMigrationInformer(virtCli kubecli.KubevirtClient) cache.SharedIndexInfor
 
 func GetVirtualMachineMigrationResourceQuotaInformer(mtqCli v1alpha12.MtqV1alpha1Client) cache.SharedIndexInformer {
 	listWatcher := NewListWatchFromClient(mtqCli.RESTClient(), "virtualmachinemigrationresourcequotas", k8sv1.NamespaceAll, fields.Everything(), labels.Everything())
-	return cache.NewSharedIndexInformer(listWatcher, &v1alpha1.VirtualMachineMigrationResourceQuota{}, 1*time.Hour, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	return cache.NewSharedIndexInformer(listWatcher, & v1alpha13.VirtualMachineMigrationResourceQuota{}, 1*time.Hour, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 }
 
 func GetLauncherPodInformer(virtCli kubecli.KubevirtClient) cache.SharedIndexInformer {

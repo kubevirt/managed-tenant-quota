@@ -23,4 +23,4 @@ MTQ_NAMESPACE=${MTQ_NAMESPACE:-mtq}
 CR_NAME=${CR_NAME:-mtq}
 
 # update this whenever new builder tag is created
-BUILDER_IMAGE=${BUILDER_IMAGE:-quay.io/bmordeha/kubevirt/kubevirt-mtq-bazel-builder:2306151150-2c033c6}
+BUILDER_IMAGE=${BUILDER_IMAGE:-quay.io/bmordeha/kubevirt/kubevirt-mtq-bazel-builder:2306181415-c1c029e}

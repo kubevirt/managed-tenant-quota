@@ -45,10 +45,8 @@ manifests:
 builder-push:
 	./hack/build/bazel-build-builder.sh
 
-
 generate:
-	chmod 777 ./vendor/k8s.io/code-generator/generate-groups.sh
-	./hack/update-codegen.sh
+	${DO_BAZ} "./hack/update-codegen.sh"
 
 mtq_controller:
 	go build -o mtq_controller -v cmd/mtq-controller/*.go

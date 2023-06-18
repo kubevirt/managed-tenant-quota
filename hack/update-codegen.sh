@@ -17,37 +17,36 @@
 set -o errexit
 set -o nounset
 set -o pipefail
+export GO111MODULE=on
 
-SCRIPT_ROOT=$(dirname "${BASH_SOURCE[0]}")/..
-CODEGEN_PKG=${CODEGEN_PKG:-$(cd "${SCRIPT_ROOT}"; ls -d -1 ./vendor/k8s.io/code-generator 2>/dev/null || echo ../code-generator)}
+export SCRIPT_ROOT="$(cd "$(dirname $0)/../" && pwd -P)"
+CODEGEN_PKG=${CODEGEN_PKG:-$(
+    cd ${SCRIPT_ROOT}
+    ls -d -1 ./vendor/k8s.io/code-generator 2>/dev/null || echo ../code-generator
+)}
+
+find "${SCRIPT_ROOT}/pkg/" -name "*generated*.go" -exec rm {} -f \;
+find "${SCRIPT_ROOT}/staging/src/kubevirt.io/managed-tenant-quota-api/" -name "*generated*.go" -exec rm {} -f \;
+rm -rf "${SCRIPT_ROOT}/pkg/generated"
+
 
 # generate the code with:
 # --output-base    because this script should also be able to run inside the vendor dir of
 #                  k8s.io/kubernetes. The output-base is needed for the generators to output into the vendor dir
 #                  instead of the $GOPATH directly. For normal projects this can be dropped.
-"${CODEGEN_PKG}/generate-groups.sh" "deepcopy,client,informer,lister" \
+/bin/bash ${CODEGEN_PKG}/generate-groups.sh "deepcopy,client,informer,lister" \
   kubevirt.io/managed-tenant-quota/pkg/generated \
-  kubevirt.io/managed-tenant-quota/pkg/apis \
-  core:v1alpha1 \
-  --output-base "$(dirname "${BASH_SOURCE[0]}")/../../.." \
-  --go-header-file "${SCRIPT_ROOT}"/hack/custom-boilerplate.go.txt
-
-# To use your own boilerplate text append:
-#   --go-header-file "${SCRIPT_ROOT}"/hack/custom-boilerplate.go.txt
-
-rm -R ./pkg/apis/core/v1alpha1/zz_generated.deepcopy.go ./pkg/generated -f
-echo $SCRIPT_ROOT/pkg/apis/core/v1alpha1 "$(dirname "${BASH_SOURCE[0]}")/../../../kubevirt.io/managed-tenant-quota/pkg/apis/core/v1alpha1/zz_generated.deepcopy.go"
-mv "$(dirname "${BASH_SOURCE[0]}")/../../../kubevirt.io/managed-tenant-quota/pkg/apis/core/v1alpha1/zz_generated.deepcopy.go" $SCRIPT_ROOT/pkg/apis/core/v1alpha1 -f
-mv "$(dirname "${BASH_SOURCE[0]}")/../../../kubevirt.io/managed-tenant-quota/pkg/generated" $SCRIPT_ROOT/pkg
-rm -R "$(dirname "${BASH_SOURCE[0]}")/../../../kubevirt.io"
+  kubevirt.io/managed-tenant-quota/staging/src/kubevirt.io/managed-tenant-quota-api/pkg/apis  \
+    "core:v1alpha1 " \
+    --go-header-file ${SCRIPT_ROOT}/hack/custom-boilerplate.go.txt
 
 echo "************* running controller-gen to generate schema yaml ********************"
 (
     mkdir -p "${SCRIPT_ROOT}/_out/manifests/schema"
     find "${SCRIPT_ROOT}/_out/manifests/schema/" -type f -exec rm {} -f \;
-    $HOME/go/bin/controller-gen  crd:crdVersions=v1 output:dir=${SCRIPT_ROOT}/_out/manifests/schema paths=./pkg/apis/core/...
+    cd ./staging/src/kubevirt.io/managed-tenant-quota-api
+    controller-gen crd:crdVersions=v1 output:dir=${SCRIPT_ROOT}/_out/manifests/schema paths=./pkg/apis/core/...
 )
 
-(cd "${SCRIPT_ROOT}/tools/crd-generator/" && go build -o ../../bin/crd-generator ./...)
-
-./bin/crd-generator --crdDir=./_out/manifests/schema/ --outputDir=./pkg/mtq-operator/resources/
+(cd "${SCRIPT_ROOT}/tools/crd-generator/" && go build -o "${SCRIPT_ROOT}/bin/crd-generator" ./...)
+${SCRIPT_ROOT}/bin/crd-generator --crdDir=${SCRIPT_ROOT}/_out/manifests/schema/ --outputDir=${SCRIPT_ROOT}/pkg/mtq-operator/resources/

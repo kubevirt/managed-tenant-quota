@@ -9,7 +9,7 @@ import (
 	"k8s.io/utils/pointer"
 	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/api"
 	utils "kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/resources"
-	mtqv1alpha1 "kubevirt.io/managed-tenant-quota/pkg/apis/core/v1alpha1"
+	mtqv1alpha1 "kubevirt.io/managed-tenant-quota/staging/src/kubevirt.io/managed-tenant-quota-api/pkg/apis/core/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 

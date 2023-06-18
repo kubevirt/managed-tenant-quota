@@ -26,8 +26,8 @@ import (
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	rest "k8s.io/client-go/rest"
-	v1alpha1 "kubevirt.io/managed-tenant-quota/pkg/apis/core/v1alpha1"
 	scheme "kubevirt.io/managed-tenant-quota/pkg/generated/clientset/versioned/scheme"
+	v1alpha1 "kubevirt.io/managed-tenant-quota/staging/src/kubevirt.io/managed-tenant-quota-api/pkg/apis/core/v1alpha1"
 )
 
 // MTQsGetter has a method to return a MTQInterface.

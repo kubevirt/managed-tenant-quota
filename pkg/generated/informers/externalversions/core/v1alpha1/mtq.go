@@ -26,10 +26,10 @@ import (
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
 	cache "k8s.io/client-go/tools/cache"
-	corev1alpha1 "kubevirt.io/managed-tenant-quota/pkg/apis/core/v1alpha1"
 	versioned "kubevirt.io/managed-tenant-quota/pkg/generated/clientset/versioned"
 	internalinterfaces "kubevirt.io/managed-tenant-quota/pkg/generated/informers/externalversions/internalinterfaces"
 	v1alpha1 "kubevirt.io/managed-tenant-quota/pkg/generated/listers/core/v1alpha1"
+	corev1alpha1 "kubevirt.io/managed-tenant-quota/staging/src/kubevirt.io/managed-tenant-quota-api/pkg/apis/core/v1alpha1"
 )
 
 // MTQInformer provides access to a shared informer and lister for

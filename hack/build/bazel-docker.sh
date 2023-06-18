@@ -144,7 +144,6 @@ _rsync \
     --exclude "vendor" \
     --exclude ".vagrant" \
     --exclude ".git" \
-    --exclude "WORKSPACE" \
     "rsync://root@127.0.0.1:${RSYNCD_PORT}/build" \
     ${MTQ_DIR}/
 

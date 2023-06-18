@@ -22,7 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
-	v1alpha1 "kubevirt.io/managed-tenant-quota/pkg/apis/core/v1alpha1"
+	v1alpha1 "kubevirt.io/managed-tenant-quota/staging/src/kubevirt.io/managed-tenant-quota-api/pkg/apis/core/v1alpha1"
 )
 
 // VirtualMachineMigrationResourceQuotaLister helps list VirtualMachineMigrationResourceQuotas.

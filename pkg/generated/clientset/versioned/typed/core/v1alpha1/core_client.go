@@ -22,8 +22,8 @@ import (
 	"net/http"
 
 	rest "k8s.io/client-go/rest"
-	v1alpha1 "kubevirt.io/managed-tenant-quota/pkg/apis/core/v1alpha1"
 	"kubevirt.io/managed-tenant-quota/pkg/generated/clientset/versioned/scheme"
+	v1alpha1 "kubevirt.io/managed-tenant-quota/staging/src/kubevirt.io/managed-tenant-quota-api/pkg/apis/core/v1alpha1"
 )
 
 type MtqV1alpha1Interface interface {
