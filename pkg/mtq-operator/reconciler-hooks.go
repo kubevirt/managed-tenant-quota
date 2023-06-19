@@ -3,7 +3,7 @@ package mtq_operator
 import (
 	"context"
 	"fmt"
-	"kubevirt.io/managed-tenant-quota/pkg/apis/core/v1alpha1"
+	"kubevirt.io/managed-tenant-quota/staging/src/kubevirt.io/managed-tenant-quota-api/pkg/apis/core/v1alpha1"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"

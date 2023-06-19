@@ -17,7 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/api"
 	"kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk"
-	mtqv1 "kubevirt.io/managed-tenant-quota/pkg/apis/core/v1alpha1"
+	mtqv1 "kubevirt.io/managed-tenant-quota/staging/src/kubevirt.io/managed-tenant-quota-api/pkg/apis/core/v1alpha1"
 )
 
 // Status provides MTQ status sub-resource
