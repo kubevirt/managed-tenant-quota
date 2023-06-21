@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/rs/cors"
 	"io"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/certificate"
 	"k8s.io/klog/v2"
 	"kubevirt.io/managed-tenant-quota/pkg/util"
@@ -23,25 +22,19 @@ type Server interface {
 
 type MTQServer struct {
 	mtqNS             string
-	kubevirtNS        string
 	bindAddress       string
 	bindPort          uint
-	migrationInformer cache.SharedIndexInformer
 	secretCertManager certificate.Manager
 	handler           http.Handler
 }
 
 // MTQLockServer returns an initialized uploadProxyApp
 func MTQLockServer(mtqNS string,
-	kubevirtNS string,
 	bindAddress string,
 	bindPort uint,
-	migrationInformer cache.SharedIndexInformer,
 	secretCertManager certificate.Manager) (Server, error) {
 	app := &MTQServer{
 		mtqNS:             mtqNS,
-		kubevirtNS:        kubevirtNS,
-		migrationInformer: migrationInformer,
 		secretCertManager: secretCertManager,
 		bindAddress:       bindAddress,
 		bindPort:          bindPort,
@@ -59,8 +52,7 @@ func (app *MTQServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (app *MTQServer) initHandler() {
 	mux := http.NewServeMux()
 	mux.HandleFunc(healthzPath, app.handleHealthzRequest)
-	mux.Handle(servePath, NewTargetLauncherValidator(app.migrationInformer, app.kubevirtNS, app.mtqNS))
-
+	mux.Handle(servePath, NewTargetLauncherValidator(app.mtqNS))
 	app.handler = cors.AllowAll().Handler(mux)
 
 }

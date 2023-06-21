@@ -3,6 +3,7 @@ package util
 import (
 	"crypto/tls"
 	"fmt"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/certificate"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -125,4 +126,15 @@ func SetupTLS(certManager certificate.Manager) *tls.Config {
 	}
 	tlsConfig.BuildNameToCertificate()
 	return tlsConfig
+}
+
+func GetKVNS(kubevirtInformer cache.SharedIndexInformer) string {
+	objs := kubevirtInformer.GetIndexer().List()
+	if len(objs) != 1 {
+		log.Log.Error("Single KV object should exist in the cluster.")
+		os.Exit(1)
+	}
+	kv := (objs[0]).(*v1.KubeVirt)
+
+	return kv.Namespace
 }

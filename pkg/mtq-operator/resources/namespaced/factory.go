@@ -20,7 +20,6 @@ type FactoryArgs struct {
 	ImagePullSecrets       []corev1.LocalObjectReference
 	PriorityClassName      string
 	Namespace              string
-	KVNamespace            string
 	InfraNodePlacement     *sdkapi.NodePlacement
 }
 

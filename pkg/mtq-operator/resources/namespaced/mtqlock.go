@@ -24,7 +24,7 @@ func createMTQLockResources(args *FactoryArgs) []client.Object {
 		createMTQLockRoleBinding(),
 		createMTQLockServiceAccount(),
 		createMTQLockService(),
-		createMTQLockDeployment(args.MTQLockServerImage, args.KVNamespace, args.PullPolicy, args.ImagePullSecrets, args.PriorityClassName, args.Verbosity, args.InfraNodePlacement),
+		createMTQLockDeployment(args.MTQLockServerImage, args.PullPolicy, args.ImagePullSecrets, args.PriorityClassName, args.Verbosity, args.InfraNodePlacement),
 	}
 }
 
@@ -48,7 +48,7 @@ func createMTQLockService() *corev1.Service {
 	return service
 }
 
-func createMTQLockDeployment(image, kvNs string, pullPolicy string, imagePullSecrets []corev1.LocalObjectReference, priorityClassName string, verbosity string, infraNodePlacement *sdkapi.NodePlacement) *appsv1.Deployment {
+func createMTQLockDeployment(image, pullPolicy string, imagePullSecrets []corev1.LocalObjectReference, priorityClassName string, verbosity string, infraNodePlacement *sdkapi.NodePlacement) *appsv1.Deployment {
 	defaultMode := corev1.ConfigMapVolumeSourceDefaultMode
 	deployment := utils2.CreateDeployment(mtqLockResourceName, utils2.MTQLabel, mtqLockResourceName, mtqLockResourceName, imagePullSecrets, 1, infraNodePlacement)
 	if priorityClassName != "" {
@@ -79,10 +79,6 @@ func createMTQLockDeployment(image, kvNs string, pullPolicy string, imagePullSec
 		{
 			Name:  utils2.TlsLabel,
 			Value: "true",
-		},
-		{
-			Name:  utils2.KubevirtInstallNamespace,
-			Value: kvNs,
 		},
 	}
 	container.ReadinessProbe = &corev1.Probe{

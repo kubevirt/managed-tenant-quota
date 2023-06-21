@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"github.com/kelseyhightower/envconfig"
 	"github.com/pkg/errors"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
@@ -22,23 +21,9 @@ const (
 	defaultHost = "0.0.0.0"
 )
 
-var (
-	lockEnvs lockServerEnvs
-)
-
-// lockServerEnvs contains environment variables read for setting custom cert paths
-type lockServerEnvs struct {
-	TlsLabel                 string `default:"true" split_words:"true"`
-	KubevirtInstallNamespace string `default:"true" split_words:"true"`
-}
-
 func main() {
 	defer klog.Flush()
 	mtqNS := util.GetNamespace()
-	err := envconfig.Process("", &lockEnvs)
-	if err != nil {
-		klog.Fatalf("Unable to get environment variables: %v\n", errors.WithStack(err))
-	}
 
 	virtCli, err := util.GetVirtCli()
 	if err != nil {
@@ -53,12 +38,9 @@ func main() {
 		klog.Fatalf("Error creating ready file: %+v", err)
 	}
 
-	migrationInformer := util.GetMigrationInformer(virtCli)
 	secretInformer := util.GetSecretInformer(virtCli, mtqNS)
-
-	go migrationInformer.Run(stop)
 	go secretInformer.Run(stop)
-	if !cache.WaitForCacheSync(stop, migrationInformer.HasSynced, secretInformer.HasSynced) {
+	if !cache.WaitForCacheSync(stop, secretInformer.HasSynced) {
 		os.Exit(1)
 	}
 
@@ -74,10 +56,8 @@ func main() {
 	defer secretCertManager.Stop()
 
 	mtqLockServer, err := mtq_lock_server.MTQLockServer(mtqNS,
-		lockEnvs.KubevirtInstallNamespace,
 		defaultHost,
 		defaultPort,
-		migrationInformer,
 		secretCertManager,
 	)
 	if err != nil {

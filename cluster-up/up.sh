@@ -42,3 +42,39 @@ fi
 if [ ${KUBEVIRT_SINGLE_STACK} == true ]; then
     validate_single_stack_ipv6
 fi
+LATEST=$(curl -L https://storage.googleapis.com/kubevirt-prow/devel/nightly/release/kubevirt/kubevirt/latest)
+kubectl apply -f https://storage.googleapis.com/kubevirt-prow/devel/nightly/release/kubevirt/kubevirt/${LATEST}/kubevirt-operator.yaml
+kubectl apply -f https://storage.googleapis.com/kubevirt-prow/devel/nightly/release/kubevirt/kubevirt/${LATEST}/kubevirt-cr.yaml
+
+# Ensure the KubeVirt CRD is created
+count=0
+until kubectl get crd kubevirts.kubevirt.io; do
+    ((count++)) && ((count == 30)) && echo "KubeVirt CRD not found" && exit 1
+    echo "waiting for KubeVirt CRD"
+    sleep 1
+done
+
+# Ensure the KubeVirt API is available
+count=0
+until kubectl api-resources --api-group=kubevirt.io | grep kubevirts; do
+    ((count++)) && ((count == 30)) && echo "KubeVirt API not found" && exit 1
+    echo "waiting for KubeVirt API"
+    sleep 1
+done
+
+
+# Ensure the KubeVirt CR is created
+count=0
+until kubectl -n kubevirt get kv kubevirt; do
+    ((count++)) && ((count == 30)) && echo "KubeVirt CR not found" && exit 1
+    echo "waiting for KubeVirt CR"
+    sleep 1
+done
+
+# Wait until KubeVirt is ready
+count=0
+until kubectl wait -n kubevirt kv kubevirt --for condition=Available --timeout 5m; do
+    ((count++)) && ((count == 5)) && echo "KubeVirt not ready in time" && exit 1
+    echo "Error waiting for KubeVirt to be Available, sleeping 1m and retrying"
+    sleep 1m
+done

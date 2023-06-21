@@ -2,30 +2,60 @@ package mtq_lock_server
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/client-go/tools/cache"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/managed-tenant-quota/pkg/mtq-lock-server/validation"
+	"kubevirt.io/managed-tenant-quota/pkg/util"
 	"net/http"
+	"os"
 )
 
 type TargetVirtLauncherValidator struct {
 	migrationInformer cache.SharedIndexInformer
-	kubevirtNS        string
+	kubevirtInformer  cache.SharedIndexInformer
 	mtqNS             string
 }
 
-func NewTargetLauncherValidator(migrationInformer cache.SharedIndexInformer, kubevirtNS string, mtqNS string) *TargetVirtLauncherValidator {
+func NewTargetLauncherValidator(mtqNS string) *TargetVirtLauncherValidator {
 	return &TargetVirtLauncherValidator{
-		migrationInformer: migrationInformer,
-		kubevirtNS:        kubevirtNS,
+		migrationInformer: nil,
+		kubevirtInformer:  nil,
 		mtqNS:             mtqNS,
 	}
 }
 
+func (tvlv *TargetVirtLauncherValidator) setInformers() {
+	virtCli, err := util.GetVirtCli()
+	if err != nil {
+		log.Log.Error(err.Error())
+		os.Exit(1)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	stop := ctx.Done()
+	kubevirtInformer := util.KubeVirtInformer(virtCli)
+	migrationInformer := util.GetMigrationInformer(virtCli)
+
+	go migrationInformer.Run(stop)
+	go kubevirtInformer.Run(stop)
+	if !cache.WaitForCacheSync(stop, kubevirtInformer.HasSynced, migrationInformer.HasSynced) {
+		log.Log.Error("couldn't sync vit informers")
+		os.Exit(1)
+	}
+	tvlv.kubevirtInformer = kubevirtInformer
+	tvlv.migrationInformer = migrationInformer
+	log.Log.Infof("Virt Informers are set")
+}
+
 func (tvlv *TargetVirtLauncherValidator) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if tvlv.kubevirtInformer == nil || tvlv.migrationInformer == nil {
+		tvlv.setInformers()
+	}
+
 	in, err := parseRequest(*r)
 	if err != nil {
 		log.Log.Error(err.Error())
@@ -37,7 +67,7 @@ func (tvlv *TargetVirtLauncherValidator) ServeHTTP(w http.ResponseWriter, r *htt
 		Request: in.Request,
 	}
 
-	out, err := validator.Validate(tvlv.migrationInformer, tvlv.kubevirtNS, tvlv.mtqNS)
+	out, err := validator.Validate(tvlv.migrationInformer, util.GetKVNS(tvlv.kubevirtInformer), tvlv.mtqNS)
 	if err != nil {
 		e := fmt.Sprintf("could not generate admission response: %v", err)
 		log.Log.Error(err.Error())

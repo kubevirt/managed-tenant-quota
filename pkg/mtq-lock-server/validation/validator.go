@@ -49,6 +49,7 @@ func (v Validator) validateRQCtlModification(mtqNS string, reasonFoForbidden str
 }
 
 func (v Validator) validateTargetVirtLauncherPod(migrationInformer cache.SharedIndexInformer, kubevirtNS string) (*admissionv1.AdmissionReview, error) {
+
 	if !isVirtControllerServiceAccount(v.Request.UserInfo.Username, kubevirtNS) {
 		return reviewResponse(v.Request.UID, false, http.StatusForbidden, invalidPodCreationErrorMessage), nil
 	}

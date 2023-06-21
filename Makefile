@@ -20,7 +20,7 @@
 		format \
 		goveralls \
 		release-description \
-		bazel-generate bazel-build bazel-build-images bazel-push-images \
+		bazel-build-images push-images \
 		fossa
 all: build
 
@@ -40,7 +40,7 @@ endif
 all: manifests bazel-build-images
 
 manifests:
-	${DO_BAZ} "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} VERBOSITY=${VERBOSITY} PULL_POLICY=${PULL_POLICY} CR_NAME=${CR_NAME} MTQ_NAMESPACE=${CDI_NAMESPACE} ./hack/build/build-manifests.sh"
+	${DO_BAZ} "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} VERBOSITY=${VERBOSITY} PULL_POLICY=${PULL_POLICY} CR_NAME=${CR_NAME} MTQ_NAMESPACE=${MTQ_NAMESPACE} ./hack/build/build-manifests.sh"
 
 builder-push:
 	./hack/build/bazel-build-builder.sh
@@ -53,6 +53,22 @@ cluster-up:
 
 cluster-down:
 	./cluster-up/down.sh
+
+push-images:
+	eval "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG}  ./hack/build/build-docker.sh push"
+
+build-images:
+	eval "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG}  ./hack/build/build-docker.sh"
+
+push: build-images push-images
+
+cluster-clean-mtq:
+	./cluster-sync/clean.sh
+
+cluster-sync-mtq: cluster-clean-mtq
+	./cluster-sync/sync.sh MTQ_AVAILABLE_TIMEOUT=${MTQ_AVAILABLE_TIMEOUT} DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} PULL_POLICY=${PULL_POLICY} MTQ_NAMESPACE=${MTQ_NAMESPACE}
+
+cluster-sync: cluster-sync-mtq
 
 mtq_controller:
 	go build -o mtq_controller -v cmd/mtq-controller/*.go
@@ -79,18 +95,3 @@ fmt:
 
 run: build
 	sudo ./mtq_controller
-
-build-images: build-mtq-lock-server-image build-mtq-controller-image build-mtq-operator-image
-
-build-mtq-lock-server-image:
-	docker build -t quay.io/bmordeha/kubevirt/mtq_lock_server -f Dockerfile.lockServer  .
-	docker push  quay.io/bmordeha/kubevirt/mtq_lock_server
-
-build-mtq-controller-image:
-	docker build -t quay.io/bmordeha/kubevirt/mtq_controller -f Dockerfile.controller .
-	docker push  quay.io/bmordeha/kubevirt/mtq_controller
-
-build-mtq-operator-image:
-	docker build -t quay.io/bmordeha/kubevirt/mtq_operator -f Dockerfile.operator .
-	docker push  quay.io/bmordeha/kubevirt/mtq_operator
-

@@ -2253,22 +2253,22 @@ spec:
     spec:
       containers:
       - args:
-        - -v=1
+        - -v=3
         env:
         - name: DEPLOY_CLUSTER_RESOURCES
           value: "true"
         - name: OPERATOR_VERSION
           value: latest
         - name: CONTROLLER_IMAGE
-          value: quay.io/bmordeha/kubevirt/mtq_controller:latest
+          value: registry:5000/mtq_controller:latest
         - name: MTQ_LOCK_SERVER_IMAGE
-          value: quay.io/bmordeha/kubevirt/mtq_lock_server:latest
+          value: registry:5000/mtq_lock_server:latest
         - name: VERBOSITY
-          value: "1"
+          value: "3"
         - name: PULL_POLICY
           value: Always
         - name: MONITORING_NAMESPACE
-        image: quay.io/bmordeha/kubevirt/mtq_operator:latest
+        image: registry:5000/mtq_operator:latest
         imagePullPolicy: Always
         name: mtq-operator
         ports:

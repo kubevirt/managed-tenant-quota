@@ -7,6 +7,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -56,6 +57,7 @@ const (
 
 type ManagedQuotaController struct {
 	mtqNs                 string
+	stop                  <-chan struct{}
 	nsCache               *NamespaceCache
 	internalLock          *sync.Mutex
 	nsLockMap             *namespaceLockMap
@@ -74,14 +76,12 @@ type ManagedQuotaController struct {
 }
 
 func NewManagedQuotaController(virtCli kubecli.KubevirtClient,
+	stop <-chan struct{},
 	mtqNs string, mtqCli v1alpha13.MtqV1alpha1Client,
-	migrationInformer cache.SharedIndexInformer,
 	podInformer cache.SharedIndexInformer,
 	resourceQuotaInformer cache.SharedIndexInformer,
 	vmmrqInformer cache.SharedIndexInformer,
-	vmiInformer cache.SharedIndexInformer,
 	serverBundleFetcher *fetcher.ConfigMapCertBundleFetcher,
-	templateSvc services.TemplateService,
 ) *ManagedQuotaController {
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartRecordingToSink(&v14.EventSinkImpl{Interface: virtCli.CoreV1().Events(v1.NamespaceAll)})
@@ -89,12 +89,13 @@ func NewManagedQuotaController(virtCli kubecli.KubevirtClient,
 	ctrl := ManagedQuotaController{
 		mtqNs:                 mtqNs,
 		virtCli:               virtCli,
+		stop:                  stop,
 		mtqCli:                mtqCli,
-		migrationInformer:     migrationInformer,
+		migrationInformer:     nil,
 		podInformer:           podInformer,
 		resourceQuotaInformer: resourceQuotaInformer,
 		vmmrqInformer:         vmmrqInformer,
-		vmiInformer:           vmiInformer,
+		vmiInformer:           nil,
 		serverBundleFetcher:   serverBundleFetcher,
 		migrationQueue:        workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "migration-queue"),
 		internalLock:          &sync.Mutex{},
@@ -102,13 +103,8 @@ func NewManagedQuotaController(virtCli kubecli.KubevirtClient,
 		nsCache:               NewNamespaceCache(),
 		recorder:              eventBroadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: utils.ControllerPodName}),
 		podEvaluator:          core.NewPodEvaluator(nil, clock.RealClock{}),
-		templateSvc:           templateSvc,
+		templateSvc:           nil,
 	}
-
-	ctrl.migrationInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		DeleteFunc: ctrl.deleteMigration,
-		UpdateFunc: ctrl.updateMigration,
-	})
 
 	ctrl.vmmrqInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    ctrl.addVmmrq,
@@ -121,6 +117,10 @@ func NewManagedQuotaController(virtCli kubecli.KubevirtClient,
 // When a virtualMachineMigrationResourceQuota is added, figure out if there are pending migration in the namespace
 // if there are we should push them into the queue to accelerate the target creation process
 func (ctrl *ManagedQuotaController) addVmmrq(obj interface{}) {
+	err := ctrl.setKVInformersAndTmplSrvIfNeeded()
+	if err != nil {
+		return
+	}
 	atLeastOneMigration := false
 	vmmrq := obj.(*v1alpha12.VirtualMachineMigrationResourceQuota)
 	log.Log.V(4).Object(vmmrq).Infof("VMMRQ " + vmmrq.Name + " added")
@@ -146,6 +146,10 @@ func (ctrl *ManagedQuotaController) addVmmrq(obj interface{}) {
 // When a virtualMachineMigrationResourceQuota is updated , figure out if there are pending migration in the namespace
 // if there are we should push them into the queue to accelerate the target creation process
 func (ctrl *ManagedQuotaController) updateVmmrq(old, cur interface{}) {
+	err := ctrl.setKVInformersAndTmplSrvIfNeeded()
+	if err != nil {
+		return
+	}
 	atLeastOneMigration := false
 	curVmmrq := cur.(*v1alpha12.VirtualMachineMigrationResourceQuota)
 	oldVmmrq := old.(*v1alpha12.VirtualMachineMigrationResourceQuota)
@@ -421,23 +425,13 @@ func Run(threadiness int, stop <-chan struct{}) error {
 	}
 
 	mtqCli := util.GetMTQCli()
-	migrationInformer := util.GetMigrationInformer(virtCli)
 	podInformer := util.GetLauncherPodInformer(virtCli)
 	resourceQuotaInformer := util.GetResourceQuotaInformer(virtCli)
-	vmiInformer := util.GetVMIInformer(virtCli)
 	virtualMachineMigrationResourceQuotaInformer := util.GetVirtualMachineMigrationResourceQuotaInformer(mtqCli)
-	kubeVirtInformer := util.KubeVirtInformer(virtCli)
-	crdInformer := util.CRDInformer(virtCli)
-	pvcInformer := util.PersistentVolumeClaim(virtCli)
 
-	go migrationInformer.Run(stop)
 	go podInformer.Run(stop)
 	go resourceQuotaInformer.Run(stop)
 	go virtualMachineMigrationResourceQuotaInformer.Run(stop)
-	go vmiInformer.Run(stop)
-	go kubeVirtInformer.Run(stop)
-	go crdInformer.Run(stop)
-	go pvcInformer.Run(stop)
 
 	serverBundleFetcher := &fetcher.ConfigMapCertBundleFetcher{
 		Name:   "mtq-lock-signer-bundle",
@@ -445,53 +439,23 @@ func Run(threadiness int, stop <-chan struct{}) error {
 	}
 
 	if !cache.WaitForCacheSync(stop,
-		migrationInformer.HasSynced,
 		podInformer.HasSynced,
 		resourceQuotaInformer.HasSynced,
 		virtualMachineMigrationResourceQuotaInformer.HasSynced,
-		vmiInformer.HasSynced,
-		kubeVirtInformer.HasSynced,
-		crdInformer.HasSynced,
-		pvcInformer.HasSynced,
 	) {
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
 
-	objs := kubeVirtInformer.GetIndexer().List()
-	if len(objs) != 1 {
-		return fmt.Errorf("single KV object should exist in the cluster")
-	}
-	kv := (objs[0]).(*v1alpha1.KubeVirt)
-
-	clusterConfig := virtconfig.NewClusterConfig(crdInformer, kubeVirtInformer, kv.Namespace)
-
-	fakeVal := "NotImportantWeJustNeedTheTargetResources"
-	templateSvc := services.NewTemplateService(fakeVal,
-		240,
-		fakeVal,
-		fakeVal,
-		fakeVal,
-		fakeVal,
-		fakeVal,
-		fakeVal,
-		pvcInformer.GetStore(),
-		virtCli,
-		clusterConfig,
-		107,
-		fakeVal,
-	)
-
 	ctrl := NewManagedQuotaController(virtCli,
+		stop,
 		mtqNs,
 		mtqCli,
-		migrationInformer,
 		podInformer,
 		resourceQuotaInformer,
 		virtualMachineMigrationResourceQuotaInformer,
-		vmiInformer,
 		serverBundleFetcher,
-		templateSvc,
 	)
+	_ = ctrl.setKVInformersAndTmplSrvIfNeeded()
 
 	log.Log.Info("Starting Managed Quota controller")
 	defer log.Log.Info("Shutting down Managed Quota controller")
@@ -746,4 +710,85 @@ func getCurrLauncherLimitedResource(podEvaluator v12.Evaluator, podToCreate *v1.
 		launcherLimitedResource.MatchContains = append(launcherLimitedResource.MatchContains, string(k))
 	}
 	return launcherLimitedResource, nil
+}
+
+func (ctrl *ManagedQuotaController) setKVInformersAndTmplSrvIfNeeded() error {
+	if ctrl.shouldSetUpKVInformersAndTmplSrv() {
+		installed, err := isKVInstalled(ctrl.virtCli)
+		if installed && err == nil {
+			err := ctrl.setKVInformersAndTmplSrv()
+			if err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
+	}
+	return nil
+}
+
+func (ctrl *ManagedQuotaController) setKVInformersAndTmplSrv() error {
+	ctrl.vmiInformer = util.GetVMIInformer(ctrl.virtCli)
+	ctrl.migrationInformer = util.GetMigrationInformer(ctrl.virtCli)
+	kubeVirtInformer := util.KubeVirtInformer(ctrl.virtCli)
+	crdInformer := util.CRDInformer(ctrl.virtCli)
+	pvcInformer := util.PersistentVolumeClaim(ctrl.virtCli)
+
+	go ctrl.migrationInformer.Run(ctrl.stop)
+	go ctrl.vmiInformer.Run(ctrl.stop)
+	go kubeVirtInformer.Run(ctrl.stop)
+	go crdInformer.Run(ctrl.stop)
+	go pvcInformer.Run(ctrl.stop)
+
+	if !cache.WaitForCacheSync(ctrl.stop,
+		ctrl.migrationInformer.HasSynced,
+		ctrl.vmiInformer.HasSynced,
+		crdInformer.HasSynced,
+		kubeVirtInformer.HasSynced,
+	) {
+		return fmt.Errorf("failed to wait for caches to sync")
+	}
+
+	ctrl.migrationInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		DeleteFunc: ctrl.deleteMigration,
+		UpdateFunc: ctrl.updateMigration,
+	})
+
+	objs := kubeVirtInformer.GetIndexer().List()
+	if len(objs) != 1 {
+		return fmt.Errorf("single KV object should exist in the cluster")
+	}
+	kv := (objs[0]).(*v1alpha1.KubeVirt)
+
+	clusterConfig := virtconfig.NewClusterConfig(crdInformer, kubeVirtInformer, kv.Namespace)
+
+	fakeVal := "NotImportantWeJustNeedTheTargetResources"
+	ctrl.templateSvc = services.NewTemplateService(fakeVal,
+		240,
+		fakeVal,
+		fakeVal,
+		fakeVal,
+		fakeVal,
+		fakeVal,
+		fakeVal,
+		pvcInformer.GetStore(),
+		ctrl.virtCli,
+		clusterConfig,
+		107,
+		fakeVal,
+	)
+	log.Log.Infof("Virt Informers and TmplSrv are set")
+	return nil
+}
+
+func (ctrl *ManagedQuotaController) shouldSetUpKVInformersAndTmplSrv() bool {
+	return ctrl.templateSvc == nil
+}
+
+func isKVInstalled(virtCli kubecli.KubevirtClient) (bool, error) {
+	_, err := virtCli.VirtualMachineInstance(metav1.NamespaceAll).List(context.Background(), &metav1.ListOptions{})
+	if err == nil {
+		return true, err
+	}
+	return errors.IsNotFound(err), err
 }

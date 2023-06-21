@@ -1,4 +1,5 @@
 .idea/
+_out/*
 examples
 mtq_controller
 mtq_operator

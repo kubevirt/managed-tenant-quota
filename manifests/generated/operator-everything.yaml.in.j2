@@ -2253,7 +2253,7 @@ spec:
     spec:
       containers:
       - args:
-        - -v=1
+        - -v=3
         env:
         - name: DEPLOY_CLUSTER_RESOURCES
           value: "true"
@@ -2264,7 +2264,7 @@ spec:
         - name: MTQ_LOCK_SERVER_IMAGE
           value: {{ mtq_lock_server_image }}
         - name: VERBOSITY
-          value: "1"
+          value: "3"
         - name: PULL_POLICY
           value: {{ pull_policy }}
         - name: MONITORING_NAMESPACE

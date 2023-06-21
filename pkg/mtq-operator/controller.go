@@ -7,13 +7,10 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
-	k6tv1 "kubevirt.io/api/core/v1"
 	mtqcerts "kubevirt.io/managed-tenant-quota/pkg/mtq-operator/resources/cert"
 	"kubevirt.io/managed-tenant-quota/pkg/mtq-operator/resources/utils"
 	"kubevirt.io/managed-tenant-quota/staging/src/kubevirt.io/managed-tenant-quota-api/pkg/apis/core/v1alpha1"
-	"os"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -75,7 +72,6 @@ func newReconciler(mgr manager.Manager) (*ReconcileMTQ, error) {
 	}
 
 	namespacedArgs.Namespace = namespace
-	namespacedArgs.KVNamespace = getKVNS()
 
 	log.Info("", "VARS", fmt.Sprintf("%+v", namespacedArgs))
 
@@ -242,33 +238,4 @@ func (r *ReconcileMTQ) getCertificateDefinitions(mtq *v1alpha1.MTQ) []mtqcerts.C
 	}
 
 	return mtqcerts.CreateCertificateDefinitions(args)
-}
-
-func getKVNS() string {
-	virtCli, err := util.GetVirtCli()
-	if err != nil {
-		log.Error(err, "")
-		os.Exit(1)
-	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	stop := ctx.Done()
-	kubevirtInformer := util.KubeVirtInformer(virtCli)
-	go kubevirtInformer.Run(stop)
-	if err != nil {
-		log.Error(err, "")
-		os.Exit(1)
-	}
-	if !cache.WaitForCacheSync(stop, kubevirtInformer.HasSynced) {
-		log.Error(err, "couldn't fetch kv install namespace")
-		os.Exit(1)
-	}
-	objs := kubevirtInformer.GetIndexer().List()
-	if len(objs) != 1 {
-		log.Error(err, "Single KV object should exist in the cluster.")
-		os.Exit(1)
-	}
-	kv := (objs[0]).(*k6tv1.KubeVirt)
-
-	return kv.Namespace
 }

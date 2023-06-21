@@ -15,7 +15,7 @@
 OPERATOR_IMAGE_NAME=${OPERATOR_IMAGE_NAME:-mtq_operator}
 CONTROLLER_IMAGE_NAME=${CONTROLLER_IMAGE_NAME:-mtq_controller}
 MTQ_LOCK_SERVER_IMAGE_NAME=${MTQ_LOCK_SERVER_IMAGE_NAME:-mtq_lock_server}
-DOCKER_PREFIX=quay.io/bmordeha/kubevirt
+DOCKER_PREFIX=${DOCKER_PREFIX:-"quay.io/bmordeha/kubevirt"}
 DOCKER_TAG=${DOCKER_TAG:-latest}
 VERBOSITY=${VERBOSITY:-1}
 PULL_POLICY=${PULL_POLICY:-Always}
@@ -23,4 +23,4 @@ MTQ_NAMESPACE=${MTQ_NAMESPACE:-mtq}
 CR_NAME=${CR_NAME:-mtq}
 
 # update this whenever new builder tag is created
-BUILDER_IMAGE=${BUILDER_IMAGE:-quay.io/bmordeha/kubevirt/kubevirt-mtq-bazel-builder:2306181415-c1c029e}
+BUILDER_IMAGE=${BUILDER_IMAGE:-quay.io/bmordeha/kubevirt/kubevirt-mtq-bazel-builder:2306201325-0dfe3ff}
