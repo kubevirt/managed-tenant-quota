@@ -70,6 +70,13 @@ cluster-sync-mtq: cluster-clean-mtq
 
 cluster-sync: cluster-sync-mtq
 
+test-unit: WHAT = ./pkg/... ./cmd/...
+test-unit:
+	${DO_BAZ} "ACK_GINKGO_DEPRECATIONS=${ACK_GINKGO_DEPRECATIONS} ./hack/build/run-unit-tests.sh ${WHAT}"
+
+bootstrap-ginkgo:
+	${DO_BAZ} ./hack/build/bootstrap-ginkgo.sh
+
 mtq_controller:
 	go build -o mtq_controller -v cmd/mtq-controller/*.go
 	chmod 777 mtq_controller

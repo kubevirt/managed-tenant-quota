@@ -25,13 +25,14 @@ require (
 	github.com/googleapis/gnostic v0.5.5 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
-	github.com/onsi/gomega v1.27.6 // indirect
+	github.com/nxadm/tail v1.4.8 // indirect
 	github.com/robfig/cron v1.2.0 // indirect
 	golang.org/x/mod v0.10.0 // indirect
 	golang.org/x/tools v0.8.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.2.0 // indirect
 	google.golang.org/genproto v0.0.0-20220720214146-176da50484ac // indirect
 	google.golang.org/grpc v1.49.0 // indirect
+	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	k8s.io/gengo v0.0.0-20220902162205-c0856e24416d // indirect
 	k8s.io/kube-aggregator v0.27.1 // indirect
 	k8s.io/kubectl v0.0.0 // indirect
@@ -42,6 +43,8 @@ require (
 require (
 	github.com/ghodss/yaml v1.0.0
 	github.com/kelseyhightower/envconfig v1.4.0
+	github.com/onsi/ginkgo v1.16.5
+	github.com/onsi/gomega v1.27.6
 	github.com/openshift/library-go v0.0.0-20211220195323-eca2c467c492
 	github.com/rs/cors v1.7.0
 	k8s.io/client-go v12.0.0+incompatible

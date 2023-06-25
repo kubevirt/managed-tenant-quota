@@ -7,7 +7,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -713,14 +712,9 @@ func getCurrLauncherLimitedResource(podEvaluator v12.Evaluator, podToCreate *v1.
 }
 
 func (ctrl *ManagedQuotaController) setKVInformersAndTmplSrvIfNeeded() error {
-	if ctrl.shouldSetUpKVInformersAndTmplSrv() {
-		installed, err := isKVInstalled(ctrl.virtCli)
-		if installed && err == nil {
-			err := ctrl.setKVInformersAndTmplSrv()
-			if err != nil {
-				return err
-			}
-		} else {
+	if ctrl.shouldSetUpKVInformersAndTmplSrv() && kvInstalled(ctrl.virtCli) {
+		err := ctrl.setKVInformersAndTmplSrv()
+		if err != nil {
 			return err
 		}
 	}
@@ -785,10 +779,7 @@ func (ctrl *ManagedQuotaController) shouldSetUpKVInformersAndTmplSrv() bool {
 	return ctrl.templateSvc == nil
 }
 
-func isKVInstalled(virtCli kubecli.KubevirtClient) (bool, error) {
+func kvInstalled(virtCli kubecli.KubevirtClient) bool {
 	_, err := virtCli.VirtualMachineInstance(metav1.NamespaceAll).List(context.Background(), &metav1.ListOptions{})
-	if err == nil {
-		return true, err
-	}
-	return errors.IsNotFound(err), err
+	return err == nil
 }

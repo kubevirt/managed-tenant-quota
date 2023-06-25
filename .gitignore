@@ -9,4 +9,6 @@ pod.yaml
 create5vmis
 delete5vmis
 _ci-configs/*
-
+0
+bin/
+.coverprofile

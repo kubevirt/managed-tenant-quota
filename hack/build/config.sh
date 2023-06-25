@@ -24,3 +24,24 @@ CR_NAME=${CR_NAME:-mtq}
 
 # update this whenever new builder tag is created
 BUILDER_IMAGE=${BUILDER_IMAGE:-quay.io/bmordeha/kubevirt/kubevirt-mtq-bazel-builder:2306201325-0dfe3ff}
+
+function parseTestOpts() {
+    pkgs=""
+    test_args=""
+    while [[ $# -gt 0 ]] && [[ $1 != "" ]]; do
+        case "${1}" in
+        --test-args=*)
+            test_args="${1#*=}"
+            shift 1
+            ;;
+        ./*...)
+            pkgs="${pkgs} ${1}"
+            shift 1
+            ;;
+        *)
+            echo "ABORT: Unrecognized option \"$1\""
+            exit 1
+            ;;
+        esac
+    done
+}

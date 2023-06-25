@@ -37,17 +37,16 @@ func (tvlv *TargetVirtLauncherValidator) setInformers() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	stop := ctx.Done()
-	kubevirtInformer := util.KubeVirtInformer(virtCli)
-	migrationInformer := util.GetMigrationInformer(virtCli)
+	tvlv.kubevirtInformer = util.KubeVirtInformer(virtCli)
+	tvlv.migrationInformer = util.GetMigrationInformer(virtCli)
 
-	go migrationInformer.Run(stop)
-	go kubevirtInformer.Run(stop)
-	if !cache.WaitForCacheSync(stop, kubevirtInformer.HasSynced, migrationInformer.HasSynced) {
+	go tvlv.kubevirtInformer.Run(stop)
+	go tvlv.migrationInformer.Run(stop)
+	if !cache.WaitForCacheSync(stop, tvlv.kubevirtInformer.HasSynced, tvlv.migrationInformer.HasSynced) {
 		log.Log.Error("couldn't sync vit informers")
 		os.Exit(1)
 	}
-	tvlv.kubevirtInformer = kubevirtInformer
-	tvlv.migrationInformer = migrationInformer
+
 	log.Log.Infof("Virt Informers are set")
 }
 

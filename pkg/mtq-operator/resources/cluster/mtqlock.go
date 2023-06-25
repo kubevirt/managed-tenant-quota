@@ -32,6 +32,18 @@ func getMTQLockServerClusterPolicyRules() []rbacv1.PolicyRule {
 				"watch",
 			},
 		},
+		{
+			APIGroups: []string{
+				"kubevirt.io",
+			},
+			Resources: []string{
+				"kubevirts",
+			},
+			Verbs: []string{
+				"list",
+				"watch",
+			},
+		},
 	}
 }
 
