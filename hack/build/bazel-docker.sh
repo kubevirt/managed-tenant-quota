@@ -141,6 +141,7 @@ _rsync \
     --exclude 'cluster-up/cluster/**/.oc' \
     --exclude 'cluster-up/cluster/**/.kubeconfig' \
     --exclude "_out" \
+    --exclude "bin" \
     --exclude "vendor" \
     --exclude ".vagrant" \
     --exclude ".git" \

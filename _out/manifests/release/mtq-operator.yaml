@@ -2141,13 +2141,6 @@ rules:
 - apiGroups:
   - kubevirt.io
   resources:
-  - virtualmachineinstancemigrations
-  verbs:
-  - list
-  - watch
-- apiGroups:
-  - kubevirt.io
-  resources:
   - kubevirts
   verbs:
   - list

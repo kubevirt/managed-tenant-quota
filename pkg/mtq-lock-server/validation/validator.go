@@ -10,7 +10,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/cache"
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/managed-tenant-quota/pkg/mtq-operator/resources/utils"
 	"net/http"
@@ -30,14 +29,14 @@ const (
 	MtqContollerServiceAccountName   = utils.ControllerPodName
 )
 
-func (v Validator) Validate(migrationInformer cache.SharedIndexInformer, kubevirtNS string, mtqNS string) (*admissionv1.AdmissionReview, error) {
+func (v Validator) Validate(kubevirtNS string, mtqNS string) (*admissionv1.AdmissionReview, error) {
 	switch v.Request.Kind.Kind {
 	case "VirtualMachineMigrationResourceQuota":
 		return v.validateRQCtlModification(mtqNS, reasonFoForbiddenVMMRQUpdate, reasonForAcceptedVMMRQUpdate)
 	case "ResourceQuota":
 		return v.validateRQCtlModification(mtqNS, reasonFoForbiddenRQUpdate, reasonForAcceptedRQUpdate)
 	case "Pod":
-		return v.validateTargetVirtLauncherPod(migrationInformer, kubevirtNS)
+		return v.validateTargetVirtLauncherPod(kubevirtNS)
 	}
 	return nil, fmt.Errorf("MTQ webhook doesn't recongnize request: %+v", v.Request)
 }
@@ -48,8 +47,7 @@ func (v Validator) validateRQCtlModification(mtqNS string, reasonFoForbidden str
 	return reviewResponse(v.Request.UID, false, http.StatusForbidden, reasonFoForbidden), nil
 }
 
-func (v Validator) validateTargetVirtLauncherPod(migrationInformer cache.SharedIndexInformer, kubevirtNS string) (*admissionv1.AdmissionReview, error) {
-
+func (v Validator) validateTargetVirtLauncherPod(kubevirtNS string) (*admissionv1.AdmissionReview, error) {
 	if !isVirtControllerServiceAccount(v.Request.UserInfo.Username, kubevirtNS) {
 		return reviewResponse(v.Request.UID, false, http.StatusForbidden, invalidPodCreationErrorMessage), nil
 	}
@@ -57,23 +55,12 @@ func (v Validator) validateTargetVirtLauncherPod(migrationInformer cache.SharedI
 	if err != nil {
 		return nil, err
 	}
-	migrationObjs, err := migrationInformer.GetIndexer().ByIndex(cache.NamespaceIndex, pod.Namespace)
-	if err != nil {
-		return nil, err
-	}
-	migrationUID, belongToMigration := pod.Labels[virtv1.MigrationJobLabel]
+	_, belongToMigration := pod.Labels[virtv1.MigrationJobLabel]
 	if !belongToMigration {
 		return reviewResponse(v.Request.UID, false, http.StatusForbidden, invalidPodCreationErrorMessage), nil
 	}
 
-	for _, migrationObj := range migrationObjs {
-		vmim := migrationObj.(*virtv1.VirtualMachineInstanceMigration)
-		if vmim.Status.Phase == virtv1.MigrationPending && string(vmim.UID) == migrationUID {
-			return reviewResponse(v.Request.UID, true, http.StatusAccepted, "valid pod"), nil
-		}
-	}
-
-	return nil, fmt.Errorf("MTQ webhook doesn't recongnize request: %+v", v.Request)
+	return reviewResponse(v.Request.UID, true, http.StatusAccepted, "valid target virt-launcher"), nil
 }
 
 func (v Validator) getPod() (*corev1.Pod, error) {

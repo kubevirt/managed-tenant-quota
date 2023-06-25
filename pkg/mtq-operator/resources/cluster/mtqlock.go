@@ -25,18 +25,6 @@ func getMTQLockServerClusterPolicyRules() []rbacv1.PolicyRule {
 				"kubevirt.io",
 			},
 			Resources: []string{
-				"virtualmachineinstancemigrations",
-			},
-			Verbs: []string{
-				"list",
-				"watch",
-			},
-		},
-		{
-			APIGroups: []string{
-				"kubevirt.io",
-			},
-			Resources: []string{
 				"kubevirts",
 			},
 			Verbs: []string{

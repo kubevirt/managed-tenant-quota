@@ -1,6 +1,7 @@
 package util
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"k8s.io/client-go/tools/cache"
@@ -128,7 +129,25 @@ func SetupTLS(certManager certificate.Manager) *tls.Config {
 	return tlsConfig
 }
 
-func GetKVNS(kubevirtInformer cache.SharedIndexInformer) string {
+func GetKVNS() *string {
+	virtCli, err := GetVirtCli()
+	if err != nil {
+		log.Log.Error(err.Error())
+		os.Exit(1)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	stop := ctx.Done()
+	kubevirtInformer := KubeVirtInformer(virtCli)
+	go kubevirtInformer.Run(stop)
+	if err != nil {
+		log.Log.Error(err.Error())
+		os.Exit(1)
+	}
+	if !cache.WaitForCacheSync(stop, kubevirtInformer.HasSynced) {
+		log.Log.Error("couldn't fetch kv install namespace")
+		os.Exit(1)
+	}
 	objs := kubevirtInformer.GetIndexer().List()
 	if len(objs) != 1 {
 		log.Log.Error("Single KV object should exist in the cluster.")
@@ -136,5 +155,5 @@ func GetKVNS(kubevirtInformer cache.SharedIndexInformer) string {
 	}
 	kv := (objs[0]).(*v1.KubeVirt)
 
-	return kv.Namespace
+	return &kv.Namespace
 }
