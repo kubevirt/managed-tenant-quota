@@ -16,8 +16,10 @@
 		cluster-up cluster-down cluster-sync \
 		test test-functional test-unit test-lint \
 		publish \
-		vet \
-		format \
+		mtq_controller \
+		mtq_lock_server \
+		mtq_operator \
+		fmt \
 		goveralls \
 		release-description \
 		bazel-build-images push-images \
@@ -70,9 +72,16 @@ cluster-sync-mtq: cluster-clean-mtq
 
 cluster-sync: cluster-sync-mtq
 
-test-unit: WHAT = ./pkg/... ./cmd/...
-test-unit:
+test: WHAT = ./pkg/... ./cmd/...
+test: bootstrap-ginkgo
 	${DO_BAZ} "ACK_GINKGO_DEPRECATIONS=${ACK_GINKGO_DEPRECATIONS} ./hack/build/run-unit-tests.sh ${WHAT}"
+
+build-functest:
+	${DO_BAZ} ./hack/build/build-functest.sh
+
+functest:  WHAT = ./tests/...
+functest: build-functest
+	./hack/build/run-functional-tests.sh ${WHAT} "${TEST_ARGS}"
 
 bootstrap-ginkgo:
 	${DO_BAZ} ./hack/build/bootstrap-ginkgo.sh

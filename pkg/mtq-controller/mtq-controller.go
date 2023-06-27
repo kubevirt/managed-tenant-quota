@@ -42,8 +42,7 @@ import (
 )
 
 const (
-	FailedToReleaseMigrationReason                         string                                                = "NotEnoughResourceToRelease"
-	VirtualMachineInstanceMigrationRejectedByResourceQuota v1alpha1.VirtualMachineInstanceMigrationConditionType = "migrationRejectedByResourceQuota"
+	FailedToReleaseMigrationReason string = "NotEnoughResourceToRelease"
 )
 
 type enqueueState string
@@ -130,7 +129,7 @@ func (ctrl *ManagedQuotaController) addVmmrq(obj interface{}) {
 			continue
 		}
 		for _, cond := range migration.Status.Conditions {
-			if cond.Type == VirtualMachineInstanceMigrationRejectedByResourceQuota {
+			if cond.Type == v1alpha1.VirtualMachineInstanceMigrationRejectedByResourceQuota {
 				ctrl.enqueueMigration(migration)
 				atLeastOneMigration = true
 			}
@@ -165,7 +164,7 @@ func (ctrl *ManagedQuotaController) updateVmmrq(old, cur interface{}) {
 			continue
 		}
 		for _, cond := range migration.Status.Conditions {
-			if cond.Type == VirtualMachineInstanceMigrationRejectedByResourceQuota {
+			if cond.Type == v1alpha1.VirtualMachineInstanceMigrationRejectedByResourceQuota {
 				ctrl.enqueueMigration(migration)
 				atLeastOneMigration = true
 			}
@@ -379,7 +378,7 @@ func (ctrl *ManagedQuotaController) isBlockedMigration(vmi *v1alpha1.VirtualMach
 	}
 
 	for _, cond := range migration.Status.Conditions {
-		if cond.Type == VirtualMachineInstanceMigrationRejectedByResourceQuota {
+		if cond.Type == v1alpha1.VirtualMachineInstanceMigrationRejectedByResourceQuota {
 			return true, nil
 		}
 	}
@@ -754,7 +753,10 @@ func (ctrl *ManagedQuotaController) setKVInformersAndTmplSrv() error {
 	}
 	kv := (objs[0]).(*v1alpha1.KubeVirt)
 
-	clusterConfig := virtconfig.NewClusterConfig(crdInformer, kubeVirtInformer, kv.Namespace)
+	clusterConfig, err := virtconfig.NewClusterConfig(crdInformer, kubeVirtInformer, kv.Namespace)
+	if err != nil {
+		return err
+	}
 
 	fakeVal := "NotImportantWeJustNeedTheTargetResources"
 	ctrl.templateSvc = services.NewTemplateService(fakeVal,

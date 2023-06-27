@@ -61,6 +61,15 @@ const (
 	// DisableMediatedDevicesHandling disables the handling of mediated
 	// devices, its creation and deletion
 	DisableMediatedDevicesHandling = "DisableMDEVConfiguration"
+	// HotplugNetworkIfacesGate enables the virtio network interface hotplug feature
+	HotplugNetworkIfacesGate = "HotplugNICs"
+	// PersistentReservation enables the use of the SCSI persistent reservation with the pr-helper daemon
+	PersistentReservation = "PersistentReservation"
+	// VMPersistentState enables persisting backend state files of VMs, such as the contents of the vTPM
+	VMPersistentState = "VMPersistentState"
+	Multiarchitecture = "MultiArchitecture"
+	// VMLiveUpdateFeaturesGate allows updating ceratin VM fields, such as CPU sockets to enable hot-plug functionality.
+	VMLiveUpdateFeaturesGate = "VMLiveUpdateFeatures"
 )
 
 var deprecatedFeatureGates = [...]string{
@@ -202,4 +211,22 @@ func (config *ClusterConfig) MediatedDevicesHandlingDisabled() bool {
 
 func (config *ClusterConfig) KubevirtSeccompProfileEnabled() bool {
 	return config.isFeatureGateEnabled(KubevirtSeccompProfile)
+}
+
+func (config *ClusterConfig) HotplugNetworkInterfacesEnabled() bool {
+	return config.isFeatureGateEnabled(HotplugNetworkIfacesGate)
+}
+
+func (config *ClusterConfig) PersistentReservationEnabled() bool {
+	return config.isFeatureGateEnabled(PersistentReservation)
+}
+
+func (config *ClusterConfig) VMPersistentStateEnabled() bool {
+	return config.isFeatureGateEnabled(VMPersistentState)
+}
+func (config *ClusterConfig) MultiArchitectureEnabled() bool {
+	return config.isFeatureGateEnabled(Multiarchitecture)
+}
+func (config *ClusterConfig) VMLiveUpdateFeaturesEnabled() bool {
+	return config.isFeatureGateEnabled(VMLiveUpdateFeaturesGate)
 }

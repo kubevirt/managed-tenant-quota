@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -e
 
 function validate_single_stack_ipv6() {
     local kube_ns="kube-system"

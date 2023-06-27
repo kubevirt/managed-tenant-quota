@@ -38,5 +38,3 @@ tempDir=${MANIFEST_TEMPLATE_DIR}
 processDirTemplates ${tempDir} ${OUT_DIR}/manifests ${OUT_DIR}/manifests/templates ${generator} ${MANIFEST_GENERATED_DIR}
 processDirTemplates ${tempDir}/release ${OUT_DIR}/manifests/release ${OUT_DIR}/manifests/templates/release ${generator} ${MANIFEST_GENERATED_DIR}
 
-testsManifestsDir=${MTQ_DIR}/tests/manifests
-processDirTemplates ${testsManifestsDir}/templates ${testsManifestsDir}/out ${testsManifestsDir}/out/templates ${generator} ${MANIFEST_GENERATED_DIR}
