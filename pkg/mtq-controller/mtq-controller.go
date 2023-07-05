@@ -627,6 +627,7 @@ func (ctrl *ManagedQuotaController) getCurrBlockingRQInNS(vmmrq *v1alpha12.Virtu
 			currRQListItems = append(currRQListItems, (*resourceQuota).Name)
 		} else if errWithModifiedRQ != nil && strings.Contains(errWithModifiedRQ.Error(), "exceeded quota") {
 			evtMsg := fmt.Sprintf("Warning: Currently VMMRQ: %v in namespace: %v doesn't have enough resoures to release blocked migration: %v", vmmrq.Name, m.Namespace, m.Name)
+			podToCreate.Namespace = m.Namespace // for some reason renderLaunchManifest doesn't set the pod namespace
 			ctrl.recorder.Eventf(podToCreate, v1.EventTypeWarning, FailedToReleaseMigrationReason, evtMsg, errWithModifiedRQ.Error())
 			return []string{}, nil
 		}

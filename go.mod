@@ -171,6 +171,7 @@ replace (
 	k8s.io/sample-cli-plugin => k8s.io/sample-cli-plugin v0.26.3
 	k8s.io/sample-controller => k8s.io/sample-controller v0.26.3
 	kubevirt.io/qe-tools => kubevirt.io/qe-tools v0.1.8
+	kubevirt.io/kubevirt/tests => kubevirt.io/kubevirt/tests v1.0.0-rc.0
 )
 
 replace k8s.io/controller-manager => k8s.io/controller-manager v0.26.3
