@@ -17,6 +17,7 @@ import (
 	mtq_controller "kubevirt.io/managed-tenant-quota/pkg/mtq-controller"
 	"kubevirt.io/managed-tenant-quota/tests/events"
 	"kubevirt.io/managed-tenant-quota/tests/framework"
+	"strconv"
 	"time"
 )
 
@@ -69,7 +70,7 @@ var _ = Describe("Blocked migration", func() {
 				return nil
 			}
 			return fmt.Errorf("migration is in the phase: %s", migration.Status.Phase)
-		}, 60*time.Second, 1*time.Second).ShouldNot(HaveOccurred(), fmt.Sprintf("migration should be blocked after %d s", 20*time.Second))
+		}, 20*time.Second, 1*time.Second).ShouldNot(HaveOccurred(), fmt.Sprintf("migration should be blocked after %d s", 20*time.Second))
 
 		_, err = f.MtqClient.MtqV1alpha1().VirtualMachineMigrationResourceQuotas(vmmrq.Namespace).Create(context.TODO(), vmmrq, metav1.CreateOptions{})
 		Expect(err).To(Not(HaveOccurred()))
@@ -193,6 +194,73 @@ var _ = Describe("Blocked migration", func() {
 		Entry("blocked migration, event should be created", false),
 		Entry("unblocked migration, event should not be created", true),
 	)
+
+	It("single blocked migration with several restricting resourceQuotas ", func() {
+		vmi := libvmi.NewAlpine(
+			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			libvmi.WithNetwork(kv1.DefaultPodNetwork()),
+			libvmi.WithNamespace(f.Namespace.GetName()),
+			libvmi.WithLimitCPU("2"),
+		)
+		vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
+		vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+		podResources, err := getCurrLauncherUsage(vmiPod)
+		Expect(err).To(Not(HaveOccurred()))
+		resources := []v1.ResourceName{v1.ResourceLimitsCPU, v1.ResourceRequestsMemory, v1.ResourceRequestsCPU}
+		for i, resource := range resources {
+			rq := NewQuotaBuilder().
+				WithNamespace(f.Namespace.GetName()).
+				WithName("test-quota"+strconv.Itoa(i)).
+				WithResource(resource, podResources[resource]).
+				Build()
+			_, err = f.K8sClient.CoreV1().ResourceQuotas(rq.Namespace).Create(context.TODO(), rq, metav1.CreateOptions{})
+			Expect(err).To(Not(HaveOccurred()))
+		}
+
+		vmmrq := NewVmmrqBuilder().
+			WithNamespace(f.Namespace.GetName()).
+			WithName("test-vmmrq").
+			WithResource(v1.ResourceLimitsCPU, podResources[v1.ResourceLimitsCPU]).
+			WithResource(v1.ResourceRequestsMemory, podResources[v1.ResourceRequestsMemory]).
+			WithResource(v1.ResourceRequestsCPU, podResources[v1.ResourceRequestsCPU]).
+			Build()
+
+		// execute a migration, wait for finalized state
+		By("Starting the Migration")
+		migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+		migration = tests.RunMigration(f.VirtClient, migration)
+		Eventually(func() error {
+			if migrationHasRejectedByResourceQuotaCond(f.VirtClient, migration) {
+				return nil
+			}
+			return fmt.Errorf("migration is in the phase: %s", migration.Status.Phase)
+		}, 60*time.Second, 1*time.Second).ShouldNot(HaveOccurred(), fmt.Sprintf("migration should be blocked after %d s", 20*time.Second))
+
+		_, err = f.MtqClient.MtqV1alpha1().VirtualMachineMigrationResourceQuotas(vmmrq.Namespace).Create(context.TODO(), vmmrq, metav1.CreateOptions{})
+		Expect(err).To(Not(HaveOccurred()))
+
+		Eventually(func() error {
+			if !migrationHasRejectedByResourceQuotaCond(f.VirtClient, migration) {
+				return nil
+			}
+			return fmt.Errorf("migration is still blocked in the phase: %s", migration.Status.Phase)
+		}, 20*time.Second, 1*time.Second).ShouldNot(HaveOccurred(), fmt.Sprintf("migration be unlocked after %d s", 20*time.Second))
+
+		Eventually(func() error {
+			for i, resource := range resources {
+				rq, err := f.K8sClient.CoreV1().ResourceQuotas(f.Namespace.GetName()).Get(context.TODO(), "test-quota"+strconv.Itoa(i), metav1.GetOptions{})
+				if err != nil {
+					return err
+				}
+				quantity := rq.Spec.Hard[resource]
+				if quantity.Cmp(podResources[resource]) != 0 {
+					return fmt.Errorf("rq should be restored by the mtq-controller after migration is finished")
+				}
+			}
+			return nil
+		}, 40*time.Second, 1*time.Second).ShouldNot(HaveOccurred(), fmt.Sprintf("Eventually resourceQuotas should be restore to original value after %d s", 40*time.Second))
+
+	})
 
 })
 
