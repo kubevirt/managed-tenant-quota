@@ -58,7 +58,6 @@ var _ = Describe("Blocked migration", func() {
 			_, err = f.K8sClient.CoreV1().ResourceQuotas(resourceQuota.Namespace).Create(context.TODO(), resourceQuota, metav1.CreateOptions{})
 			Expect(err).To(Not(HaveOccurred()))
 
-			// execute a migration, wait for finalized state
 			By("Starting the Migration")
 			migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
 			migration = tests.RunMigration(f.VirtClient, migration)
@@ -118,7 +117,6 @@ var _ = Describe("Blocked migration", func() {
 			_, err = f.K8sClient.CoreV1().ResourceQuotas(resourceQuota.Namespace).Create(context.TODO(), resourceQuota, metav1.CreateOptions{})
 			Expect(err).To(Not(HaveOccurred()))
 
-			// execute a migration, wait for finalized state
 			By("Starting the Migration")
 			migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
 			migration = tests.RunMigration(f.VirtClient, migration)
@@ -171,7 +169,6 @@ var _ = Describe("Blocked migration", func() {
 				WithResource(v1.ResourceRequestsCPU, podResources[v1.ResourceRequestsCPU]).
 				Build()
 
-			// execute a migration, wait for finalized state
 			By("Starting the Migration")
 			migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
 			migration = tests.RunMigration(f.VirtClient, migration)
@@ -241,7 +238,6 @@ var _ = Describe("Blocked migration", func() {
 			_, err = f.K8sClient.CoreV1().ResourceQuotas(resourceQuota.Namespace).Create(context.TODO(), resourceQuota, metav1.CreateOptions{})
 			Expect(err).To(Not(HaveOccurred()))
 
-			// execute a migration, wait for finalized state
 			By("Starting the Migration")
 			migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
 			migration = tests.RunMigration(f.VirtClient, migration)
@@ -263,6 +259,105 @@ var _ = Describe("Blocked migration", func() {
 			Entry("blocked migration, event should be created", false),
 			Entry("unblocked migration, event should not be created", true),
 		)
+	})
+
+	Context("Multiple namespaces e2e test", func() {
+		var ns1 *v1.Namespace
+		var ns2 *v1.Namespace
+		var err error
+		BeforeEach(func() {
+			ns1, err = f.CreateNamespace("test1", map[string]string{
+				framework.NsPrefixLabel: "test1",
+			})
+			Expect(err).ToNot(HaveOccurred())
+			ns2, err = f.CreateNamespace("test2", map[string]string{
+				framework.NsPrefixLabel: "test2",
+			})
+			Expect(err).ToNot(HaveOccurred())
+			f.AddNamespaceToDelete(ns1)
+			f.AddNamespaceToDelete(ns2)
+		})
+
+		It("migrations in different namespaces with multiple blocking RQs", func() {
+			vmiMap := make(map[string]*kv1.VirtualMachineInstance)
+			migrationMap := make(map[string]*kv1.VirtualMachineInstanceMigration)
+			opts := []libvmi.Option{
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(kv1.DefaultPodNetwork()),
+				libvmi.WithLimitCPU("2"),
+			}
+			namespaces := []string{ns1.GetName(), ns2.GetName(), f.Namespace.GetName()}
+
+			for _, ns := range namespaces {
+				opts = append(opts, libvmi.WithNamespace(ns))
+				vmiMap[ns] = libvmi.NewAlpine(opts...)
+				vmiMap[ns] = tests.RunVMIAndExpectLaunch(vmiMap[ns], 30)
+				Expect(err).To(Not(HaveOccurred()))
+			}
+
+			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmiMap[ns1.GetName()], vmiMap[ns1.GetName()].Namespace)
+			podResources, err := getCurrLauncherUsage(vmiPod) //all pods require same resources
+			resources := []v1.ResourceName{v1.ResourceLimitsCPU, v1.ResourceRequestsMemory, v1.ResourceRequestsCPU}
+			for i, resource := range resources {
+				rq := NewQuotaBuilder().
+					WithName("test-quota"+strconv.Itoa(i)).
+					WithResource(resource, podResources[resource]).
+					Build()
+				for _, ns := range namespaces {
+					rq.Namespace = ns
+					_, err = f.K8sClient.CoreV1().ResourceQuotas(rq.Namespace).Create(context.TODO(), rq, metav1.CreateOptions{})
+					Expect(err).To(Not(HaveOccurred()))
+				}
+			}
+			By("Starting the Migrations")
+			for _, ns := range namespaces {
+				migrationMap[ns] = tests.NewRandomMigration(vmiMap[ns].Name, vmiMap[ns].Namespace)
+				migrationMap[ns] = tests.RunMigration(f.VirtClient, migrationMap[ns])
+				Eventually(func() error {
+					if migrationHasRejectedByResourceQuotaCond(f.VirtClient, migrationMap[ns]) {
+						return nil
+					}
+					return fmt.Errorf("migration %v in ns %v is in the phase: %s", migrationMap[ns].Name, migrationMap[ns].Namespace, migrationMap[ns].Status.Phase)
+				}, 60*time.Second, 1*time.Second).ShouldNot(HaveOccurred(), fmt.Sprintf("migration should be blocked after %d s", 20*time.Second))
+			}
+
+			vmmrq := NewVmmrqBuilder().
+				WithName("vmmrq").
+				WithResource(v1.ResourceLimitsCPU, podResources[v1.ResourceLimitsCPU]).
+				WithResource(v1.ResourceRequestsMemory, podResources[v1.ResourceRequestsMemory]).
+				WithResource(v1.ResourceRequestsCPU, podResources[v1.ResourceRequestsCPU]).
+				Build()
+			for _, ns := range namespaces {
+				_, err = f.MtqClient.MtqV1alpha1().VirtualMachineMigrationResourceQuotas(ns).Create(context.TODO(), vmmrq, metav1.CreateOptions{})
+				Expect(err).To(Not(HaveOccurred()))
+			}
+
+			Eventually(func() error {
+				for _, ns := range namespaces {
+					if migrationHasRejectedByResourceQuotaCond(f.VirtClient, migrationMap[ns]) {
+						return fmt.Errorf("migration %v in ns %v is still blocked in the phase: %s", migrationMap[ns].Name, migrationMap[ns].Namespace, migrationMap[ns].Status.Phase)
+					}
+				}
+				return nil
+			}, 40*time.Second, 1*time.Second).ShouldNot(HaveOccurred(), fmt.Sprintf("migration be unlocked after %d s", 40*time.Second))
+
+			Eventually(func() error {
+				for i, resource := range resources {
+					for _, ns := range namespaces {
+						rq, err := f.K8sClient.CoreV1().ResourceQuotas(ns).Get(context.TODO(), "test-quota"+strconv.Itoa(i), metav1.GetOptions{})
+						if err != nil {
+							return err
+						}
+						quantity := rq.Spec.Hard[resource]
+						if quantity.Cmp(podResources[resource]) != 0 {
+							return fmt.Errorf("rq should be restored by the mtq-controller after migration is finished")
+						}
+					}
+				}
+				return nil
+			}, 40*time.Second, 1*time.Second).ShouldNot(HaveOccurred(), fmt.Sprintf("Eventually resourceQuotas should be restore to original value after %d s", 40*time.Second))
+		})
+
 	})
 
 })
