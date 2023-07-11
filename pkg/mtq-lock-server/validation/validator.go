@@ -20,7 +20,7 @@ type Validator struct {
 }
 
 const (
-	invalidPodCreationErrorMessage   = "Migration process is currently being handled by the Managed Quota controller, and as a result, creations of pods are not allowed in this namespace, please try again."
+	InvalidPodCreationErrorMessage   = "Migration process is currently being handled by the Managed Quota controller, and as a result, creations of pods are not allowed in this namespace, please try again."
 	reasonFoForbiddenVMMRQUpdate     = "Migration process is currently being handled by the Managed Quota controller, and as a result, modifications,creation or deletion of virtualMachineResourceQuotas are not permitted in this namespace, please try again."
 	reasonFoForbiddenRQUpdate        = "Migration process is currently being handled by the Managed Quota controller, and as a result, modifications to resourceQuotas are not permitted in this namespace, please try again."
 	reasonForAcceptedRQUpdate        = "valid ResourceQuota Update"
@@ -49,7 +49,7 @@ func (v Validator) validateRQCtlModification(mtqNS string, reasonFoForbidden str
 
 func (v Validator) validateTargetVirtLauncherPod(kubevirtNS string) (*admissionv1.AdmissionReview, error) {
 	if !isVirtControllerServiceAccount(v.Request.UserInfo.Username, kubevirtNS) {
-		return reviewResponse(v.Request.UID, false, http.StatusForbidden, invalidPodCreationErrorMessage), nil
+		return reviewResponse(v.Request.UID, false, http.StatusForbidden, InvalidPodCreationErrorMessage), nil
 	}
 	pod, err := v.getPod()
 	if err != nil {
@@ -57,7 +57,7 @@ func (v Validator) validateTargetVirtLauncherPod(kubevirtNS string) (*admissionv
 	}
 	_, belongToMigration := pod.Labels[virtv1.MigrationJobLabel]
 	if !belongToMigration {
-		return reviewResponse(v.Request.UID, false, http.StatusForbidden, invalidPodCreationErrorMessage), nil
+		return reviewResponse(v.Request.UID, false, http.StatusForbidden, InvalidPodCreationErrorMessage), nil
 	}
 
 	return reviewResponse(v.Request.UID, true, http.StatusAccepted, "valid target virt-launcher"), nil

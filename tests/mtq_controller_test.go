@@ -5,6 +5,9 @@ import (
 	"fmt"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gstruct"
+	types2 "github.com/onsi/gomega/types"
+	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -18,6 +21,8 @@ import (
 	"kubevirt.io/managed-tenant-quota/tests/events"
 	"kubevirt.io/managed-tenant-quota/tests/framework"
 	"strconv"
+	"strings"
+	"sync"
 	"time"
 )
 
@@ -44,7 +49,7 @@ var _ = Describe("Blocked migration", func() {
 			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
 			podResources, err := getCurrLauncherUsage(vmiPod)
 			Expect(err).To(Not(HaveOccurred()))
-			resourceQuota := NewQuotaBuilder().
+			rq := NewQuotaBuilder().
 				WithNamespace(f.Namespace.GetName()).
 				WithName("test-quota").
 				WithResource(overcommitmentResource, podResources[overcommitmentResource]).
@@ -55,8 +60,8 @@ var _ = Describe("Blocked migration", func() {
 				WithName("test-vmmrq").
 				WithResource(overcommitmentResource, podResources[overcommitmentResource]).
 				Build()
-			_, err = f.K8sClient.CoreV1().ResourceQuotas(resourceQuota.Namespace).Create(context.TODO(), resourceQuota, metav1.CreateOptions{})
-			Expect(err).To(Not(HaveOccurred()))
+			err = createRQWithHardLimitOrRequestAndWaitForRegistration(f.VirtClient, rq)
+			Expect(err).ToNot(HaveOccurred())
 
 			By("Starting the Migration")
 			migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
@@ -99,7 +104,7 @@ var _ = Describe("Blocked migration", func() {
 			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
 			podResources, err := getCurrLauncherUsage(vmiPod)
 			Expect(err).To(Not(HaveOccurred()))
-			resourceQuota := NewQuotaBuilder().
+			rq := NewQuotaBuilder().
 				WithNamespace(f.Namespace.GetName()).
 				WithName("test-quota").
 				WithResource(v1.ResourceLimitsCPU, podResources[v1.ResourceLimitsCPU]).
@@ -114,8 +119,8 @@ var _ = Describe("Blocked migration", func() {
 				WithResource(v1.ResourceRequestsMemory, podResources[v1.ResourceRequestsMemory]).
 				WithResource(v1.ResourceRequestsCPU, podResources[v1.ResourceRequestsCPU]).
 				Build()
-			_, err = f.K8sClient.CoreV1().ResourceQuotas(resourceQuota.Namespace).Create(context.TODO(), resourceQuota, metav1.CreateOptions{})
-			Expect(err).To(Not(HaveOccurred()))
+			err = createRQWithHardLimitOrRequestAndWaitForRegistration(f.VirtClient, rq)
+			Expect(err).ToNot(HaveOccurred())
 
 			By("Starting the Migration")
 			migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
@@ -157,8 +162,8 @@ var _ = Describe("Blocked migration", func() {
 					WithName("test-quota"+strconv.Itoa(i)).
 					WithResource(resource, podResources[resource]).
 					Build()
-				_, err = f.K8sClient.CoreV1().ResourceQuotas(rq.Namespace).Create(context.TODO(), rq, metav1.CreateOptions{})
-				Expect(err).To(Not(HaveOccurred()))
+				err = createRQWithHardLimitOrRequestAndWaitForRegistration(f.VirtClient, rq)
+				Expect(err).ToNot(HaveOccurred())
 			}
 
 			vmmrq := NewVmmrqBuilder().
@@ -220,7 +225,7 @@ var _ = Describe("Blocked migration", func() {
 			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
 			podResources, err := getCurrLauncherUsage(vmiPod)
 			Expect(err).To(Not(HaveOccurred()))
-			resourceQuota := NewQuotaBuilder().
+			rq := NewQuotaBuilder().
 				WithNamespace(f.Namespace.GetName()).
 				WithName("test-quota").
 				WithResource(v1.ResourceRequestsMemory, podResources[v1.ResourceRequestsMemory]).
@@ -235,8 +240,8 @@ var _ = Describe("Blocked migration", func() {
 				WithName("test-vmmrq").
 				WithResource(v1.ResourceRequestsMemory, lakedQuantity).
 				Build()
-			_, err = f.K8sClient.CoreV1().ResourceQuotas(resourceQuota.Namespace).Create(context.TODO(), resourceQuota, metav1.CreateOptions{})
-			Expect(err).To(Not(HaveOccurred()))
+			err = createRQWithHardLimitOrRequestAndWaitForRegistration(f.VirtClient, rq)
+			Expect(err).ToNot(HaveOccurred())
 
 			By("Starting the Migration")
 			migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
@@ -292,11 +297,11 @@ var _ = Describe("Blocked migration", func() {
 				opts = append(opts, libvmi.WithNamespace(ns))
 				vmiMap[ns] = libvmi.NewAlpine(opts...)
 				vmiMap[ns] = tests.RunVMIAndExpectLaunch(vmiMap[ns], 30)
-				Expect(err).To(Not(HaveOccurred()))
 			}
 
 			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmiMap[ns1.GetName()], vmiMap[ns1.GetName()].Namespace)
 			podResources, err := getCurrLauncherUsage(vmiPod) //all pods require same resources
+			Expect(err).To(Not(HaveOccurred()))
 			resources := []v1.ResourceName{v1.ResourceLimitsCPU, v1.ResourceRequestsMemory, v1.ResourceRequestsCPU}
 			for i, resource := range resources {
 				rq := NewQuotaBuilder().
@@ -305,8 +310,8 @@ var _ = Describe("Blocked migration", func() {
 					Build()
 				for _, ns := range namespaces {
 					rq.Namespace = ns
-					_, err = f.K8sClient.CoreV1().ResourceQuotas(rq.Namespace).Create(context.TODO(), rq, metav1.CreateOptions{})
-					Expect(err).To(Not(HaveOccurred()))
+					err = createRQWithHardLimitOrRequestAndWaitForRegistration(f.VirtClient, rq)
+					Expect(err).ToNot(HaveOccurred())
 				}
 			}
 			By("Starting the Migrations")
@@ -360,6 +365,59 @@ var _ = Describe("Blocked migration", func() {
 
 	})
 
+	It("migrations with system abuse attempt", func() {
+		vmi := libvmi.NewAlpine(
+			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			libvmi.WithNetwork(kv1.DefaultPodNetwork()),
+			libvmi.WithNamespace(f.Namespace.GetName()),
+			libvmi.WithLimitCPU("2"),
+		)
+		vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
+
+		vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
+		podResources, err := getCurrLauncherUsage(vmiPod)
+		Expect(err).To(Not(HaveOccurred()))
+		rq := NewQuotaBuilder().
+			WithNamespace(f.Namespace.GetName()).
+			WithName("test-quota").
+			WithResource(v1.ResourceRequestsMemory, podResources[v1.ResourceRequestsMemory]).
+			Build()
+		err = createRQWithHardLimitOrRequestAndWaitForRegistration(f.VirtClient, rq)
+		Expect(err).ToNot(HaveOccurred())
+
+		// Create a context and a cancel function
+		ctx, cancel := context.WithCancel(context.Background())
+		// Use a WaitGroup to synchronize goroutines
+		var wg sync.WaitGroup
+		wg.Add(1)
+
+		go func(ctx context.Context) {
+			defer wg.Done()
+			// Start the abusing process
+			abuseSystem(f.VirtClient, ctx, f.Namespace.GetName())
+		}(ctx)
+		By("Starting the Migrations")
+		vmmrq := NewVmmrqBuilder().
+			WithNamespace(f.Namespace.GetName()).
+			WithName("test-vmmrq").
+			WithResource(v1.ResourceRequestsMemory, podResources[v1.ResourceRequestsMemory]). //enough memory for single migration
+			Build()
+		_, err = f.MtqClient.MtqV1alpha1().VirtualMachineMigrationResourceQuotas(vmmrq.Namespace).Create(context.TODO(), vmmrq, metav1.CreateOptions{})
+		Expect(err).To(Not(HaveOccurred()))
+
+		By("Making sure pod doesn't get additional resources in 5 increasements")
+		for range []int{1, 2, 3, 4, 5} {
+			migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+			migration = tests.RunMigrationAndExpectCompletion(f.VirtClient, migration, 240)
+		}
+		// Call the cancel function to stop the abusing process
+		cancel()
+
+		// Wait for the goroutine to exit
+		wg.Wait()
+
+	})
+
 })
 
 func migrationHasRejectedByResourceQuotaCond(virtClient kubecli.KubevirtClient, migration *kv1.VirtualMachineInstanceMigration) bool {
@@ -367,4 +425,173 @@ func migrationHasRejectedByResourceQuotaCond(virtClient kubecli.KubevirtClient, 
 	migrationObj, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	return conditionManager.HasCondition(migrationObj, kv1.VirtualMachineInstanceMigrationRejectedByResourceQuota)
+}
+
+func abuseSystem(virtClient kubecli.KubevirtClient, ctx context.Context, testNs string) {
+	pod := &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: "fake-pod-",
+			Namespace:    testNs,
+		},
+		Spec: v1.PodSpec{
+			Containers: []v1.Container{
+				{
+					Name:  "nginx",
+					Image: "your-image", // Specify the container image to use
+					Resources: v1.ResourceRequirements{
+						Requests: v1.ResourceList{
+							v1.ResourceMemory: resource.MustParse("50Mi"),
+						},
+					},
+					SecurityContext: &v1.SecurityContext{
+						AllowPrivilegeEscalation: resourcemerge.BoolPtr(false),
+						RunAsNonRoot:             resourcemerge.BoolPtr(true),
+						Capabilities: &v1.Capabilities{
+							Drop: []v1.Capability{"ALL"},
+						},
+						SeccompProfile: &v1.SeccompProfile{
+							Type: v1.SeccompProfileTypeRuntimeDefault,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			fmt.Println("Abusing process canceled")
+			return
+		default:
+			// Create a pod requiring 50Mi resources
+			_, _ = virtClient.CoreV1().Pods(pod.Namespace).Create(context.TODO(), pod, metav1.CreateOptions{})
+
+		}
+	}
+}
+
+func createRQWithHardLimitOrRequestAndWaitForRegistration(virtClient kubecli.KubevirtClient, rq *v1.ResourceQuota) error {
+	_, err := virtClient.CoreV1().ResourceQuotas(rq.Namespace).Create(context.TODO(), rq, metav1.CreateOptions{})
+	if err != nil {
+		return err
+	}
+
+	err = waitForRQWithHardLimitOrRequestRegistration(virtClient, rq, time.Second*10)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func waitForRQWithHardLimitOrRequestRegistration(virtClient kubecli.KubevirtClient, rq *v1.ResourceQuota, timeout time.Duration) error {
+	var containerResourceName v1.ResourceName
+	var limitingQuantity resource.Quantity
+	var err error
+	resourceRequirements := v1.ResourceRequirements{}
+	resourceRequirements.Limits = v1.ResourceList{}
+	resourceRequirements.Requests = v1.ResourceList{}
+	resourceRequirements.Requests[v1.ResourceCPU] = resource.MustParse("0m")
+	resourceRequirements.Limits[v1.ResourceCPU] = resource.MustParse("0m")
+	resourceRequirements.Requests[v1.ResourceMemory] = resource.MustParse("0Mi")
+	resourceRequirements.Limits[v1.ResourceMemory] = resource.MustParse("0Mi")
+	resourceRequirements.Requests[v1.ResourceEphemeralStorage] = resource.MustParse("0")
+	resourceRequirements.Limits[v1.ResourceEphemeralStorage] = resource.MustParse("0")
+
+	for rn, q := range rq.Spec.Hard {
+		containerResourceName, err = limitRequestToValidContainerResourceName(rn)
+		if err != nil {
+			return err
+		}
+		limitingQuantity = q
+		limitingQuantity.Add(limitingQuantity)
+		if strings.HasPrefix(string(rn), "limits.") {
+			resourceRequirements.Limits[containerResourceName] = limitingQuantity
+		} else {
+			resourceRequirements.Limits[containerResourceName] = limitingQuantity
+			resourceRequirements.Requests[containerResourceName] = limitingQuantity
+		}
+	}
+
+	// Create a fake pod that exceeds one of the resourceQuota limitations
+	pod := &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: "fake-pod-",
+			Namespace:    rq.Namespace,
+		},
+		Spec: v1.PodSpec{
+			Containers: []v1.Container{
+				{
+					Name:      "fake-container",
+					Image:     "nginx",
+					Resources: resourceRequirements,
+					SecurityContext: &v1.SecurityContext{
+						AllowPrivilegeEscalation: resourcemerge.BoolPtr(false),
+						RunAsNonRoot:             resourcemerge.BoolPtr(true),
+						Capabilities: &v1.Capabilities{
+							Drop: []v1.Capability{"ALL"},
+						},
+						SeccompProfile: &v1.SeccompProfile{
+							Type: v1.SeccompProfileTypeRuntimeDefault,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// Wait for the resourceQuota registration to take effect
+	timeoutCh := time.After(timeout)
+	tick := time.Tick(1 * time.Second)
+	for {
+		select {
+		case <-timeoutCh:
+			return fmt.Errorf("timed out waiting for resourceQuota registration")
+		case <-tick:
+			// Try creating the fake pod and check if it exceeds any of the resourceQuota limitations
+			_, err := virtClient.CoreV1().Pods(pod.Namespace).Create(context.TODO(), pod, metav1.CreateOptions{})
+			if err != nil && strings.Contains(err.Error(), "exceeded quota") {
+				return nil
+			} else if err != nil {
+				fmt.Println(err.Error())
+			} else {
+				println(" no error?")
+			}
+
+		}
+	}
+
+}
+
+func beReady() types2.GomegaMatcher {
+	return gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+		"Status": gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+			"Ready": BeTrue(),
+		}),
+	}))
+}
+
+func limitRequestToValidContainerResourceName(resourceName v1.ResourceName) (v1.ResourceName, error) {
+	switch resourceName {
+	case v1.ResourceLimitsMemory:
+		return v1.ResourceMemory, nil
+	case v1.ResourceRequestsMemory:
+		return v1.ResourceMemory, nil
+	case v1.ResourceMemory:
+		return v1.ResourceMemory, nil
+	case v1.ResourceLimitsCPU:
+		return v1.ResourceCPU, nil
+	case v1.ResourceRequestsCPU:
+		return v1.ResourceCPU, nil
+	case v1.ResourceCPU:
+		return v1.ResourceCPU, nil
+	case v1.ResourceLimitsEphemeralStorage:
+		return v1.ResourceEphemeralStorage, nil
+	case v1.ResourceRequestsEphemeralStorage:
+		return v1.ResourceEphemeralStorage, nil
+	case v1.ResourceEphemeralStorage:
+		return v1.ResourceEphemeralStorage, nil
+	default:
+		return "", fmt.Errorf("limitRequestToValidContainerResourceName support only resource that fits to requests or limits Conversion")
+	}
 }

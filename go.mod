@@ -15,13 +15,10 @@ require (
 )
 
 require (
-	github.com/VividCortex/ewma v1.2.0 // indirect
 	github.com/appscode/jsonpatch v1.0.1 // indirect
 	github.com/blang/semver v3.5.1+incompatible // indirect
-	github.com/cheggaaa/pb/v3 v3.1.0 // indirect
 	github.com/emicklei/go-restful/v3 v3.9.0 // indirect
 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
-	github.com/fatih/color v1.12.0 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/go-openapi/swag v0.22.3 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 // indirect
@@ -33,13 +30,8 @@ require (
 	github.com/inconshreveable/mousetrap v1.0.1 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
-	github.com/mattn/go-colorable v0.1.8 // indirect
-	github.com/mattn/go-isatty v0.0.12 // indirect
-	github.com/mattn/go-runewidth v0.0.13 // indirect
 	github.com/moby/spdystream v0.2.0 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
-	github.com/povsister/scp v0.0.0-20210427074412-33febfd9f13e // indirect
-	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/robfig/cron v1.2.0 // indirect
 	github.com/spf13/cobra v1.6.0 // indirect
 	golang.org/x/crypto v0.1.0 // indirect
@@ -48,7 +40,6 @@ require (
 	gomodules.xyz/jsonpatch/v2 v2.2.0 // indirect
 	google.golang.org/genproto v0.0.0-20220720214146-176da50484ac // indirect
 	google.golang.org/grpc v1.49.0 // indirect
-	gopkg.in/cheggaaa/pb.v1 v1.0.28 // indirect
 	k8s.io/gengo v0.0.0-20220902162205-c0856e24416d // indirect
 	k8s.io/kube-aggregator v0.27.1 // indirect
 	k8s.io/kubectl v0.0.0 // indirect
@@ -170,8 +161,8 @@ replace (
 	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.26.3
 	k8s.io/sample-cli-plugin => k8s.io/sample-cli-plugin v0.26.3
 	k8s.io/sample-controller => k8s.io/sample-controller v0.26.3
-	kubevirt.io/qe-tools => kubevirt.io/qe-tools v0.1.8
 	kubevirt.io/kubevirt/tests => kubevirt.io/kubevirt/tests v1.0.0-rc.0
+	kubevirt.io/qe-tools => kubevirt.io/qe-tools v0.1.8
 )
 
 replace k8s.io/controller-manager => k8s.io/controller-manager v0.26.3
