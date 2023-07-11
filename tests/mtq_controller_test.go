@@ -5,8 +5,6 @@ import (
 	"fmt"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gstruct"
-	types2 "github.com/onsi/gomega/types"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -302,7 +300,7 @@ var _ = Describe("Blocked migration", func() {
 			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmiMap[ns1.GetName()], vmiMap[ns1.GetName()].Namespace)
 			podResources, err := getCurrLauncherUsage(vmiPod) //all pods require same resources
 			Expect(err).To(Not(HaveOccurred()))
-			resources := []v1.ResourceName{v1.ResourceLimitsCPU, v1.ResourceRequestsMemory, v1.ResourceRequestsCPU}
+			resources := []v1.ResourceName{v1.ResourceEphemeralStorage, v1.ResourceRequestsMemory, v1.ResourceRequestsCPU}
 			for i, resource := range resources {
 				rq := NewQuotaBuilder().
 					WithName("test-quota"+strconv.Itoa(i)).
@@ -328,7 +326,7 @@ var _ = Describe("Blocked migration", func() {
 
 			vmmrq := NewVmmrqBuilder().
 				WithName("vmmrq").
-				WithResource(v1.ResourceLimitsCPU, podResources[v1.ResourceLimitsCPU]).
+				WithResource(v1.ResourceEphemeralStorage, podResources[v1.ResourceEphemeralStorage]).
 				WithResource(v1.ResourceRequestsMemory, podResources[v1.ResourceRequestsMemory]).
 				WithResource(v1.ResourceRequestsCPU, podResources[v1.ResourceRequestsCPU]).
 				Build()
@@ -550,7 +548,7 @@ func waitForRQWithHardLimitOrRequestRegistration(virtClient kubecli.KubevirtClie
 		case <-tick:
 			// Try creating the fake pod and check if it exceeds any of the resourceQuota limitations
 			_, err := virtClient.CoreV1().Pods(pod.Namespace).Create(context.TODO(), pod, metav1.CreateOptions{})
-			if err != nil && strings.Contains(err.Error(), "exceeded quota") {
+			if err != nil && strings.Contains(err.Error(), "exceeded quota") && strings.Contains(err.Error(), rq.Name) {
 				return nil
 			} else if err != nil {
 				fmt.Println(err.Error())
@@ -561,14 +559,6 @@ func waitForRQWithHardLimitOrRequestRegistration(virtClient kubecli.KubevirtClie
 		}
 	}
 
-}
-
-func beReady() types2.GomegaMatcher {
-	return gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-		"Status": gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-			"Ready": BeTrue(),
-		}),
-	}))
 }
 
 func limitRequestToValidContainerResourceName(resourceName v1.ResourceName) (v1.ResourceName, error) {

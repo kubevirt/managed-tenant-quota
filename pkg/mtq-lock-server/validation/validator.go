@@ -20,21 +20,21 @@ type Validator struct {
 }
 
 const (
-	InvalidPodCreationErrorMessage   = "Migration process is currently being handled by the Managed Quota controller, and as a result, creations of pods are not allowed in this namespace, please try again."
-	reasonFoForbiddenVMMRQUpdate     = "Migration process is currently being handled by the Managed Quota controller, and as a result, modifications,creation or deletion of virtualMachineResourceQuotas are not permitted in this namespace, please try again."
-	reasonFoForbiddenRQUpdate        = "Migration process is currently being handled by the Managed Quota controller, and as a result, modifications to resourceQuotas are not permitted in this namespace, please try again."
-	reasonForAcceptedRQUpdate        = "valid ResourceQuota Update"
-	reasonForAcceptedVMMRQUpdate     = "valid VirtualMachineMigrationResourceQuota Update"
-	VirtControllerServiceAccountName = "kubevirt-controller"
-	MtqContollerServiceAccountName   = utils.ControllerPodName
+	InvalidPodCreationErrorMessage           = "Migration process is currently being handled by the Managed Quota controller, and as a result, creations of pods are not allowed in this namespace, please try again."
+	ReasonFoForbiddenVMMRQCreationOrDeletion = "Migration process is currently being handled by the Managed Quota controller, and as a result, modifications,creation or deletion of virtualMachineMigrationResourceQuotas are not permitted in this namespace, please try again."
+	ReasonFoForbiddenRQUpdate                = "Migration process is currently being handled by the Managed Quota controller, and as a result, modifications to resourceQuotas are not permitted in this namespace, please try again."
+	reasonForAcceptedRQUpdate                = "valid ResourceQuota Update"
+	reasonForAcceptedVMMRQUpdate             = "valid VirtualMachineMigrationResourceQuota Update"
+	VirtControllerServiceAccountName         = "kubevirt-controller"
+	MtqContollerServiceAccountName           = utils.ControllerPodName
 )
 
 func (v Validator) Validate(kubevirtNS string, mtqNS string) (*admissionv1.AdmissionReview, error) {
 	switch v.Request.Kind.Kind {
 	case "VirtualMachineMigrationResourceQuota":
-		return v.validateRQCtlModification(mtqNS, reasonFoForbiddenVMMRQUpdate, reasonForAcceptedVMMRQUpdate)
+		return v.validateRQCtlModification(mtqNS, ReasonFoForbiddenVMMRQCreationOrDeletion, reasonForAcceptedVMMRQUpdate)
 	case "ResourceQuota":
-		return v.validateRQCtlModification(mtqNS, reasonFoForbiddenRQUpdate, reasonForAcceptedRQUpdate)
+		return v.validateRQCtlModification(mtqNS, ReasonFoForbiddenRQUpdate, reasonForAcceptedRQUpdate)
 	case "Pod":
 		return v.validateTargetVirtLauncherPod(kubevirtNS)
 	}
