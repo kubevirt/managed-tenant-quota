@@ -2,6 +2,7 @@ package tests
 
 import (
 	"context"
+	"fmt"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
@@ -9,7 +10,11 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
+	kv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/containerized-data-importer/pkg/util/cert/fetcher"
+	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/managed-tenant-quota/pkg/mtq-lock-server/validation"
 	validating_webhook_lock "kubevirt.io/managed-tenant-quota/pkg/validating-webhook-lock"
 	"kubevirt.io/managed-tenant-quota/tests/framework"
@@ -72,6 +77,41 @@ var _ = Describe("Blocked migration", func() {
 			return err.Error()
 		}, 5*time.Second, 1*time.Nanosecond).Should(ContainSubstring(validation.InvalidPodCreationErrorMessage), "should be able to lock namespaced")
 
+	})
+
+	It("Lock namespace for non migrating vms", func() {
+		cm := controller.NewVirtualMachineInstanceConditionManager()
+		vmi := libvmi.NewAlpine(
+			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			libvmi.WithNetwork(kv1.DefaultPodNetwork()),
+			libvmi.WithNamespace(f.Namespace.GetName()),
+		)
+
+		serverBundleFetcher := &fetcher.ConfigMapCertBundleFetcher{
+			Name:   "mtq-lock-signer-bundle",
+			Client: f.VirtClient.CoreV1().ConfigMaps(mtqNs),
+		}
+		caBundle, err := serverBundleFetcher.BundleBytes()
+		Expect(err).ToNot(HaveOccurred())
+
+		Eventually(func() error {
+			return validating_webhook_lock.LockNamespace(f.Namespace.GetName(), mtqNs, f.VirtClient, caBundle)
+		}, 20*time.Second, 1*time.Second).ShouldNot(HaveOccurred(), "should be able to lock namespaced")
+
+		vmi, err = f.VirtClient.VirtualMachineInstance(vmi.Namespace).Create(context.TODO(), vmi)
+		Expect(err).ToNot(HaveOccurred())
+
+		Eventually(func() error {
+			vmi, err = f.VirtClient.VirtualMachineInstance(vmi.Namespace).Get(context.TODO(), vmi.Name, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			if !cm.HasConditionWithStatus(vmi, kv1.VirtualMachineInstanceSynchronized, v1.ConditionFalse) {
+				return fmt.Errorf("vmi be rejected by the mtq-lock-server")
+			}
+			return nil
+		}, 10*time.Second, 1*time.Second).Should(BeNil())
+
+		c := cm.GetCondition(vmi, kv1.VirtualMachineInstanceSynchronized)
+		Expect(c.Message).Should(ContainSubstring(validation.InvalidPodCreationErrorMessage))
 	})
 
 	It("Lock namespace for rq changes", func() {
@@ -156,5 +196,27 @@ var _ = Describe("Blocked migration", func() {
 			return err.Error()
 		}, 5*time.Second, 1*time.Nanosecond).Should(ContainSubstring(validation.ReasonFoForbiddenVMMRQCreationOrDeletion), "should be able to lock namespaced")
 
+	})
+
+	It("Do not lock ns for migrations", func() {
+		vmi := libvmi.NewAlpine(
+			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			libvmi.WithNetwork(kv1.DefaultPodNetwork()),
+			libvmi.WithNamespace(f.Namespace.GetName()),
+		)
+		vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
+		serverBundleFetcher := &fetcher.ConfigMapCertBundleFetcher{
+			Name:   "mtq-lock-signer-bundle",
+			Client: f.VirtClient.CoreV1().ConfigMaps(mtqNs),
+		}
+		caBundle, err := serverBundleFetcher.BundleBytes()
+		Expect(err).ToNot(HaveOccurred())
+
+		Eventually(func() error {
+			return validating_webhook_lock.LockNamespace(f.Namespace.GetName(), mtqNs, f.VirtClient, caBundle)
+		}, 20*time.Second, 1*time.Second).ShouldNot(HaveOccurred(), "should be able to lock namespaced")
+
+		migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+		tests.RunMigrationAndExpectCompletion(f.VirtClient, migration, 240)
 	})
 })
