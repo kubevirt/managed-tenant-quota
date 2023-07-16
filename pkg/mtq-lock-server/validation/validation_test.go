@@ -11,12 +11,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	virtv1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/managed-tenant-quota/pkg/util"
 	"net/http"
-)
-
-const (
-	mtqNs      = "mtq"
-	kubevirtNs = "kubevirt"
 )
 
 var _ = Describe("Test validation of mtq lock server", func() {
@@ -43,11 +39,11 @@ var _ = Describe("Test validation of mtq lock server", func() {
 				},
 
 				UserInfo: authenticationv1.UserInfo{
-					Username: fmt.Sprintf("system:serviceaccount:%v:kubevirt-controller", kubevirtNs),
+					Username: fmt.Sprintf("system:serviceaccount:%v:kubevirt-controller", util.DefaultKubevirtNs),
 				},
 			},
 		}
-		admissionReview, err := v.Validate(kubevirtNs, mtqNs)
+		admissionReview, err := v.Validate(util.DefaultKubevirtNs, util.DefaultMtqNs)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(admissionReview.Response.Allowed).To(BeTrue())
 		Expect(admissionReview.Response.Result.Code).To(Equal(int32(http.StatusAccepted)))
@@ -73,11 +69,11 @@ var _ = Describe("Test validation of mtq lock server", func() {
 				},
 
 				UserInfo: authenticationv1.UserInfo{
-					Username: fmt.Sprintf("system:serviceaccount:%v:kubevirt-controller", kubevirtNs),
+					Username: fmt.Sprintf("system:serviceaccount:%v:kubevirt-controller", util.DefaultKubevirtNs),
 				},
 			},
 		}
-		admissionReview, err := v.Validate(kubevirtNs, mtqNs)
+		admissionReview, err := v.Validate(util.DefaultKubevirtNs, util.DefaultMtqNs)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(admissionReview.Response.Allowed).To(BeFalse())
 		Expect(admissionReview.Response.Result.Code).To(Equal(int32(http.StatusForbidden)))
@@ -111,7 +107,7 @@ var _ = Describe("Test validation of mtq lock server", func() {
 				},
 			},
 		}
-		admissionReview, err := v.Validate(kubevirtNs, mtqNs)
+		admissionReview, err := v.Validate(util.DefaultKubevirtNs, util.DefaultMtqNs)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(admissionReview.Response.Allowed).To(BeFalse())
 		Expect(admissionReview.Response.Result.Code).To(Equal(int32(http.StatusForbidden)))
@@ -130,7 +126,7 @@ var _ = Describe("Test validation of mtq lock server", func() {
 			},
 		}
 
-		admissionReview, err := v.Validate(kubevirtNs, mtqNs)
+		admissionReview, err := v.Validate(util.DefaultKubevirtNs, util.DefaultMtqNs)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(admissionReview.Response.Allowed).To(BeFalse())
 		Expect(admissionReview.Response.Result.Code).To(Equal(int32(http.StatusForbidden)))
@@ -149,7 +145,7 @@ var _ = Describe("Test validation of mtq lock server", func() {
 			},
 		}
 
-		admissionReview, err := v.Validate(kubevirtNs, mtqNs)
+		admissionReview, err := v.Validate(util.DefaultKubevirtNs, util.DefaultMtqNs)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(admissionReview.Response.Allowed).To(BeFalse())
 		Expect(admissionReview.Response.Result.Code).To(Equal(int32(http.StatusForbidden)))
@@ -163,12 +159,12 @@ var _ = Describe("Test validation of mtq lock server", func() {
 					Kind: "ResourceQuota",
 				},
 				UserInfo: authenticationv1.UserInfo{
-					Username: fmt.Sprintf("system:serviceaccount:%v:%v", mtqNs, MtqContollerServiceAccountName),
+					Username: fmt.Sprintf("system:serviceaccount:%v:%v", util.DefaultMtqNs, MtqContollerServiceAccountName),
 				},
 			},
 		}
 
-		admissionReview, err := v.Validate(kubevirtNs, mtqNs)
+		admissionReview, err := v.Validate(util.DefaultKubevirtNs, util.DefaultMtqNs)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(admissionReview.Response.Allowed).To(BeTrue())
 		Expect(admissionReview.Response.Result.Code).To(Equal(int32(http.StatusAccepted)))
@@ -182,12 +178,12 @@ var _ = Describe("Test validation of mtq lock server", func() {
 					Kind: "VirtualMachineMigrationResourceQuota",
 				},
 				UserInfo: authenticationv1.UserInfo{
-					Username: fmt.Sprintf("system:serviceaccount:%v:%v", mtqNs, MtqContollerServiceAccountName),
+					Username: fmt.Sprintf("system:serviceaccount:%v:%v", util.DefaultMtqNs, MtqContollerServiceAccountName),
 				},
 			},
 		}
 
-		admissionReview, err := v.Validate(kubevirtNs, mtqNs)
+		admissionReview, err := v.Validate(util.DefaultKubevirtNs, util.DefaultMtqNs)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(admissionReview.Response.Allowed).To(BeTrue())
 		Expect(admissionReview.Response.Result.Code).To(Equal(int32(http.StatusAccepted)))

@@ -14,13 +14,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 )
 
-const (
-	// Default port that api listens on.
-	defaultPort = 8443
-	// Default address api listens on.
-	defaultHost = "0.0.0.0"
-)
-
 func main() {
 	defer klog.Flush()
 	mtqNS := util.GetNamespace()
@@ -56,8 +49,8 @@ func main() {
 	defer secretCertManager.Stop()
 
 	mtqLockServer, err := mtq_lock_server.MTQLockServer(mtqNS,
-		defaultHost,
-		defaultPort,
+		util.DefaultHost,
+		util.DefaultPort,
 		secretCertManager,
 	)
 	if err != nil {

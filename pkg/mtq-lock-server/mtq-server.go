@@ -18,6 +18,7 @@ const (
 // Server is the public interface to the upload proxy
 type Server interface {
 	Start() error
+	ServeHTTP(w http.ResponseWriter, r *http.Request)
 }
 
 type MTQServer struct {

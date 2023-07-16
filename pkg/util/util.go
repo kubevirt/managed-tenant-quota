@@ -16,6 +16,12 @@ import (
 const (
 	readyFile        = "/tmp/ready"
 	noSrvCertMessage = "No server certificate, server is not yet ready to receive traffic"
+	// Default port that api listens on.
+	DefaultPort = 8443
+	// Default address api listens on.
+	DefaultHost       = "0.0.0.0"
+	DefaultMtqNs      = "mtq"
+	DefaultKubevirtNs = "kubevirt"
 )
 
 var (
