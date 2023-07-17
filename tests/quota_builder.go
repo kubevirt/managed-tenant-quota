@@ -38,6 +38,34 @@ func (qb *QuotaBuilder) WithResource(resourceName v1.ResourceName, requestMemory
 	return qb
 }
 
+// WithName sets the name for the ResourceQuota.
+func (qb *QuotaBuilder) WithZeroUsage() *QuotaBuilder {
+	if qb.resourceQuota.Spec.Hard == nil {
+		qb.resourceQuota.Spec.Hard = make(v1.ResourceList)
+	}
+	if qb.resourceQuota.Status.Used == nil {
+		qb.resourceQuota.Status.Used = make(v1.ResourceList)
+	}
+	for rqResourceName := range qb.resourceQuota.Spec.Hard {
+		qb.resourceQuota.Status.Used[rqResourceName] = *resource.NewQuantity(0, resource.DecimalSI)
+	}
+	return qb
+}
+
+// WithName sets the name for the ResourceQuota.
+func (qb *QuotaBuilder) WithSyncStatusHard() *QuotaBuilder {
+	if qb.resourceQuota.Spec.Hard == nil {
+		qb.resourceQuota.Spec.Hard = make(v1.ResourceList)
+	}
+	if qb.resourceQuota.Status.Hard == nil {
+		qb.resourceQuota.Status.Hard = make(v1.ResourceList)
+	}
+	for rqResourceName, q := range qb.resourceQuota.Spec.Hard {
+		qb.resourceQuota.Status.Hard[rqResourceName] = q
+	}
+	return qb
+}
+
 // Build creates and returns the ResourceQuota.
 func (qb *QuotaBuilder) Build() *v1.ResourceQuota {
 	return qb.resourceQuota
