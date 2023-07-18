@@ -25,7 +25,7 @@ func NewTargetLauncherValidator(mtqNS string) *TargetVirtLauncherValidator {
 
 func (tvlv *TargetVirtLauncherValidator) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if tvlv.kvNS == nil {
-		tvlv.kvNS = util.GetKVNS()
+		tvlv.kvNS = getKVNS()
 	}
 	in, err := parseRequest(*r)
 	if err != nil {
@@ -89,4 +89,8 @@ func parseRequest(r http.Request) (*admissionv1.AdmissionReview, error) {
 	}
 
 	return &a, nil
+}
+
+var getKVNS = func() *string {
+	return util.GetKVNS()
 }
