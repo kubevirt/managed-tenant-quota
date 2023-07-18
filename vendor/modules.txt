@@ -13,6 +13,9 @@ github.com/blang/semver/v4
 # github.com/cespare/xxhash/v2 v2.1.2
 ## explicit; go 1.11
 github.com/cespare/xxhash/v2
+# github.com/containers/image/v5 v5.19.1
+## explicit; go 1.13
+github.com/containers/image/v5/docker/reference
 # github.com/coreos/prometheus-operator v0.38.3
 ## explicit; go 1.13
 github.com/coreos/prometheus-operator/pkg/apis/monitoring
@@ -117,6 +120,9 @@ github.com/google/pprof/profile
 # github.com/google/uuid v1.3.0
 ## explicit
 github.com/google/uuid
+# github.com/gorhill/cronexpr v0.0.0-20180427100037-88b0669f7d75
+## explicit
+github.com/gorhill/cronexpr
 # github.com/gorilla/websocket v1.5.0
 ## explicit; go 1.12
 github.com/gorilla/websocket
@@ -142,6 +148,9 @@ github.com/kelseyhightower/envconfig
 # github.com/kubernetes-csi/external-snapshotter/client/v4 v4.2.0
 ## explicit; go 1.15
 github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1
+# github.com/kubernetes-csi/external-snapshotter/client/v6 v6.0.1
+## explicit; go 1.17
+github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1
 # github.com/mailru/easyjson v0.7.7
 ## explicit; go 1.12
 github.com/mailru/easyjson/buffer
@@ -167,6 +176,7 @@ github.com/munnerz/goautoneg
 ## explicit; go 1.18
 github.com/onsi/ginkgo/v2
 github.com/onsi/ginkgo/v2/config
+github.com/onsi/ginkgo/v2/extensions/table
 github.com/onsi/ginkgo/v2/formatter
 github.com/onsi/ginkgo/v2/ginkgo
 github.com/onsi/ginkgo/v2/ginkgo/build
@@ -285,6 +295,7 @@ github.com/openshift/client-go/security/clientset/versioned/typed/security/v1
 github.com/openshift/custom-resource-status/conditions/v1
 # github.com/openshift/library-go v0.0.0-20230328115725-6ed98e0ed0b9 => github.com/mhenriks/library-go v0.0.0-20230310153733-63d38b55bd5a
 ## explicit; go 1.19
+github.com/openshift/library-go/pkg/build/naming
 github.com/openshift/library-go/pkg/certs
 github.com/openshift/library-go/pkg/controller/factory
 github.com/openshift/library-go/pkg/crypto
@@ -360,6 +371,7 @@ golang.org/x/crypto/curve25519/internal/field
 golang.org/x/crypto/ed25519
 golang.org/x/crypto/internal/alias
 golang.org/x/crypto/internal/poly1305
+golang.org/x/crypto/pbkdf2
 golang.org/x/crypto/ssh
 golang.org/x/crypto/ssh/internal/bcrypt_pbkdf
 # golang.org/x/mod v0.10.0
@@ -538,6 +550,12 @@ google.golang.org/protobuf/types/known/timestamppb
 # gopkg.in/inf.v0 v0.9.1
 ## explicit
 gopkg.in/inf.v0
+# gopkg.in/square/go-jose.v2 v2.5.1
+## explicit
+gopkg.in/square/go-jose.v2
+gopkg.in/square/go-jose.v2/cipher
+gopkg.in/square/go-jose.v2/json
+gopkg.in/square/go-jose.v2/jwt
 # gopkg.in/yaml.v2 v2.4.0
 ## explicit; go 1.15
 gopkg.in/yaml.v2
@@ -1171,13 +1189,46 @@ kubevirt.io/client-go/util
 kubevirt.io/client-go/version
 # kubevirt.io/containerized-data-importer v1.56.0
 ## explicit; go 1.18
+kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned
+kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned/scheme
+kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned/typed/core/v1alpha1
+kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned/typed/core/v1beta1
+kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned/typed/upload/v1beta1
+kubevirt.io/containerized-data-importer/pkg/client/informers/externalversions
+kubevirt.io/containerized-data-importer/pkg/client/informers/externalversions/core
+kubevirt.io/containerized-data-importer/pkg/client/informers/externalversions/core/v1alpha1
+kubevirt.io/containerized-data-importer/pkg/client/informers/externalversions/core/v1beta1
+kubevirt.io/containerized-data-importer/pkg/client/informers/externalversions/internalinterfaces
+kubevirt.io/containerized-data-importer/pkg/client/informers/externalversions/upload
+kubevirt.io/containerized-data-importer/pkg/client/informers/externalversions/upload/v1beta1
+kubevirt.io/containerized-data-importer/pkg/client/listers/core/v1alpha1
+kubevirt.io/containerized-data-importer/pkg/client/listers/core/v1beta1
+kubevirt.io/containerized-data-importer/pkg/client/listers/upload/v1beta1
 kubevirt.io/containerized-data-importer/pkg/common
+kubevirt.io/containerized-data-importer/pkg/controller
+kubevirt.io/containerized-data-importer/pkg/controller/common
+kubevirt.io/containerized-data-importer/pkg/controller/datavolume
 kubevirt.io/containerized-data-importer/pkg/feature-gates
+kubevirt.io/containerized-data-importer/pkg/monitoring
+kubevirt.io/containerized-data-importer/pkg/operator
+kubevirt.io/containerized-data-importer/pkg/operator/resources
+kubevirt.io/containerized-data-importer/pkg/operator/resources/cluster
+kubevirt.io/containerized-data-importer/pkg/operator/resources/namespaced
+kubevirt.io/containerized-data-importer/pkg/operator/resources/utils
+kubevirt.io/containerized-data-importer/pkg/storagecapabilities
+kubevirt.io/containerized-data-importer/pkg/token
+kubevirt.io/containerized-data-importer/pkg/util
+kubevirt.io/containerized-data-importer/pkg/util/cert
 kubevirt.io/containerized-data-importer/pkg/util/cert/fetcher
+kubevirt.io/containerized-data-importer/pkg/util/cert/generator
+kubevirt.io/containerized-data-importer/pkg/util/naming
+kubevirt.io/containerized-data-importer/pkg/util/tls-crypto-watch
 # kubevirt.io/containerized-data-importer-api v1.57.0-alpha1
 ## explicit; go 1.19
 kubevirt.io/containerized-data-importer-api/pkg/apis/core
+kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1alpha1
 kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1
+kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1/utils
 kubevirt.io/containerized-data-importer-api/pkg/apis/upload
 kubevirt.io/containerized-data-importer-api/pkg/apis/upload/v1beta1
 # kubevirt.io/controller-lifecycle-operator-sdk v0.2.4
@@ -1271,6 +1322,7 @@ sigs.k8s.io/controller-runtime/pkg/certwatcher/metrics
 sigs.k8s.io/controller-runtime/pkg/client
 sigs.k8s.io/controller-runtime/pkg/client/apiutil
 sigs.k8s.io/controller-runtime/pkg/client/config
+sigs.k8s.io/controller-runtime/pkg/client/fake
 sigs.k8s.io/controller-runtime/pkg/cluster
 sigs.k8s.io/controller-runtime/pkg/config
 sigs.k8s.io/controller-runtime/pkg/config/v1alpha1

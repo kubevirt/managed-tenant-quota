@@ -189,7 +189,7 @@ func (r *ReconcileMTQ) createOperatorConfig(cr client.Object) error {
 			Labels:    map[string]string{"operator.mtq.kubevirt.io": ""},
 		},
 	}
-	utils.SetRecommendedLabels(cm, installerLabels, utils.ControllerPodName)
+	utils.SetRecommendedLabels(cm, installerLabels, "mtq-operator")
 
 	if err := controllerutil.SetControllerReference(cr, cm, r.scheme); err != nil {
 		return err
