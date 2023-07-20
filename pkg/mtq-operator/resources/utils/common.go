@@ -32,6 +32,8 @@ const (
 	AppKubernetesVersionLabel = "app.kubernetes.io/version"
 	// ControllerPodName is the label applied to mtq-controller resources
 	ControllerPodName = "mtq-controller"
+	// LockServerPodName is the name of the lock server pods
+	LockServerPodName = "mtq-lock"
 	// ControllerServiceAccountName is the name of the MTQ controller service account
 	ControllerServiceAccountName = ControllerPodName
 	// CronJobServiceAccountName is the name of the MTQ cron job service account
