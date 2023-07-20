@@ -33,7 +33,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	secv1 "github.com/openshift/api/security/v1"
 	conditions "github.com/openshift/custom-resource-status/conditions/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -1092,14 +1091,6 @@ func getMTQ(client client.Client, mtq *mtqv1.MTQ) (*mtqv1.MTQ, error) {
 		return nil, err
 	}
 	return result.(*mtqv1.MTQ), nil
-}
-
-func getSCC(client client.Client, scc *secv1.SecurityContextConstraints) (*secv1.SecurityContextConstraints, error) {
-	result, err := getObject(client, scc)
-	if err != nil {
-		return nil, err
-	}
-	return result.(*secv1.SecurityContextConstraints), nil
 }
 
 func setDeploymentsReady(args *args) bool {

@@ -17,9 +17,9 @@ require (
 require (
 	github.com/appscode/jsonpatch v1.0.1 // indirect
 	github.com/blang/semver v3.5.1+incompatible // indirect
-	github.com/containers/image/v5 v5.19.1 // indirect
 	github.com/emicklei/go-restful/v3 v3.9.0 // indirect
 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
+	github.com/fatih/color v1.13.0 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/go-openapi/swag v0.22.3 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 // indirect
@@ -28,13 +28,15 @@ require (
 	github.com/google/goexpect v0.0.0-20190425035906-112704a48083 // indirect
 	github.com/google/goterm v0.0.0-20190311235235-ce302be1d114 // indirect
 	github.com/google/pprof v0.0.0-20210720184732-4bb14d4b1be1 // indirect
-	github.com/gorhill/cronexpr v0.0.0-20180427100037-88b0669f7d75 // indirect
 	github.com/inconshreveable/mousetrap v1.0.1 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
-	github.com/kubernetes-csi/external-snapshotter/client/v6 v6.0.1 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
+	github.com/mattn/go-colorable v0.1.12 // indirect
+	github.com/mattn/go-isatty v0.0.14 // indirect
+	github.com/mitchellh/mapstructure v1.4.3 // indirect
 	github.com/moby/spdystream v0.2.0 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
+	github.com/nxadm/tail v1.4.8 // indirect
 	github.com/robfig/cron v1.2.0 // indirect
 	github.com/spf13/cobra v1.6.0 // indirect
 	golang.org/x/crypto v0.1.0 // indirect
@@ -43,8 +45,9 @@ require (
 	gomodules.xyz/jsonpatch/v2 v2.2.0 // indirect
 	google.golang.org/genproto v0.0.0-20220720214146-176da50484ac // indirect
 	google.golang.org/grpc v1.49.0 // indirect
-	gopkg.in/square/go-jose.v2 v2.5.1 // indirect
+	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	k8s.io/gengo v0.0.0-20220902162205-c0856e24416d // indirect
+	k8s.io/kube-aggregator v0.27.1 // indirect
 	k8s.io/kubectl v0.0.0 // indirect
 	sigs.k8s.io/kube-storage-version-migrator v0.0.4 // indirect
 
@@ -53,12 +56,12 @@ require (
 require (
 	github.com/ghodss/yaml v1.0.0
 	github.com/kelseyhightower/envconfig v1.4.0
+	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/ginkgo/v2 v2.9.5
 	github.com/onsi/gomega v1.27.6
 	github.com/openshift/library-go v0.0.0-20230328115725-6ed98e0ed0b9
 	github.com/rs/cors v1.7.0
 	k8s.io/client-go v12.0.0+incompatible
-	k8s.io/kube-aggregator v0.27.1
 	kubevirt.io/containerized-data-importer v1.56.0
 	kubevirt.io/qe-tools v0.1.8
 	sigs.k8s.io/controller-runtime v0.14.6

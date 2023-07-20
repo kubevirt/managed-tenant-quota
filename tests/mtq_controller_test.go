@@ -421,7 +421,7 @@ var _ = Describe("Blocked migration", func() {
 func migrationHasRejectedByResourceQuotaCond(virtClient kubecli.KubevirtClient, migration *kv1.VirtualMachineInstanceMigration) bool {
 	conditionManager := controller.NewVirtualMachineInstanceMigrationConditionManager()
 	migrationObj, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
-	Expect(err).ToNot(HaveOccurred())
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	return conditionManager.HasCondition(migrationObj, kv1.VirtualMachineInstanceMigrationRejectedByResourceQuota)
 }
 

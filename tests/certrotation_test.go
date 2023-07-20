@@ -103,12 +103,14 @@ var _ = Describe("Cert rotation tests", func() {
 
 		}, 60*time.Second, 1*time.Second).Should(BeTrue())
 
-		Eventually(func() bool {
+		Eventually(func() error {
 			updatedBundle, err := f.K8sClient.CoreV1().ConfigMaps(f.MTQInstallNs).Get(context.TODO(), configMapName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			return updatedBundle.Data["ca-bundle.crt"] != oldBundle.Data["ca-bundle.crt"]
-
+			if updatedBundle.Data["ca-bundle.crt"] == oldBundle.Data["ca-bundle.crt"] {
+				return fmt.Errorf("bundle data should be updated")
+			}
+			return nil
 		}, 60*time.Second, 1*time.Second).Should(BeTrue())
 
 	})
@@ -116,20 +118,20 @@ var _ = Describe("Cert rotation tests", func() {
 
 func rotateCert(f *framework.Framework, secretName string) {
 	secret, err := f.K8sClient.CoreV1().Secrets(f.MTQInstallNs).Get(context.TODO(), secretName, metav1.GetOptions{})
-	Expect(err).ToNot(HaveOccurred())
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 	nb, ok := secret.Annotations[annNotBefore]
-	Expect(ok).To(BeTrue())
+	ExpectWithOffset(1, ok).To(BeTrue())
 
 	notBefore, err := time.Parse(time.RFC3339, nb)
-	Expect(err).ToNot(HaveOccurred())
-	Expect(time.Since(notBefore).Seconds()).To(BeNumerically(">", 0))
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	ExpectWithOffset(1, time.Since(notBefore).Seconds()).To(BeNumerically(">", 0))
 
 	newSecret := secret.DeepCopy()
 	newSecret.Annotations[annNotAfter] = notBefore.Add(time.Second).Format(time.RFC3339)
 
 	_, err = f.K8sClient.CoreV1().Secrets(f.MTQInstallNs).Update(context.TODO(), newSecret, metav1.UpdateOptions{})
-	Expect(err).ToNot(HaveOccurred())
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 }
 
 func startServicePortForward(f *framework.Framework, serviceName string) (string, *exec.Cmd, error) {
