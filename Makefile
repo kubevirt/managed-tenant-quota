@@ -50,6 +50,10 @@ builder-push:
 generate:
 	${DO_BAZ} "./hack/update-codegen.sh"
 
+generate-verify: generate
+	./hack/verify-generate.sh
+	./hack/check-for-binaries.sh
+
 cluster-up:
 	./cluster-up/up.sh
 
