@@ -39,6 +39,10 @@ else
 	DO_BAZ=eval
 endif
 
+ifeq ($(origin KUBEVIRT_RELEASE), undefined)
+	KUBEVIRT_RELEASE="latest_nightly"
+endif
+
 all: manifests bazel-build-images
 
 manifests:
@@ -55,7 +59,7 @@ generate-verify: generate
 	./hack/check-for-binaries.sh
 
 cluster-up:
-	./cluster-up/up.sh
+	eval "KUBEVIRT_RELEASE=${KUBEVIRT_RELEASE} ./cluster-up/up.sh"
 
 cluster-down:
 	./cluster-up/down.sh

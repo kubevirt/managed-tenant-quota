@@ -28,10 +28,19 @@ curl -L https://github.com/kubevirt/kubevirtci/archive/${kubevirtci_release_tag}
 echo "KUBEVIRTCI_TAG=${kubevirtci_release_tag}" >>${SCRIPT_ROOT}/cluster-up/hack/common.sh
 
 cat << 'EOF' >> ${SCRIPT_ROOT}/cluster-up/up.sh
-LATEST=$(curl -L https://storage.googleapis.com/kubevirt-prow/devel/nightly/release/kubevirt/kubevirt/latest)
-kubectl apply -f https://storage.googleapis.com/kubevirt-prow/devel/nightly/release/kubevirt/kubevirt/${LATEST}/kubevirt-operator.yaml
-kubectl apply -f https://storage.googleapis.com/kubevirt-prow/devel/nightly/release/kubevirt/kubevirt/${LATEST}/kubevirt-cr.yaml
 
+if [ "$KUBEVIRT_RELEASE" = "latest_nightly" ]; then
+  LATEST=$(curl -L https://storage.googleapis.com/kubevirt-prow/devel/nightly/release/kubevirt/kubevirt/latest)
+  kubectl apply -f https://storage.googleapis.com/kubevirt-prow/devel/nightly/release/kubevirt/kubevirt/${LATEST}/kubevirt-operator.yaml
+  kubectl apply -f https://storage.googleapis.com/kubevirt-prow/devel/nightly/release/kubevirt/kubevirt/${LATEST}/kubevirt-cr.yaml
+elif [ "$KUBEVIRT_RELEASE" = "latest_stable" ]; then
+  RELEASE=$(curl https://storage.googleapis.com/kubevirt-prow/release/kubevirt/kubevirt/stable.txt)
+  kubectl apply -f https://github.com/kubevirt/kubevirt/releases/download/${RELEASE}/kubevirt-operator.yaml
+  kubectl apply -f https://github.com/kubevirt/kubevirt/releases/download/${RELEASE}/kubevirt-cr.yaml
+else
+  kubectl apply -f https://github.com/kubevirt/kubevirt/releases/download/${$KUBEVIRT_RELEASE}/kubevirt-operator.yaml
+  kubectl apply -f https://github.com/kubevirt/kubevirt/releases/download/${$KUBEVIRT_RELEASE}/kubevirt-cr.yaml
+fi
 # Ensure the KubeVirt CRD is created
 count=0
 until kubectl get crd kubevirts.kubevirt.io; do
