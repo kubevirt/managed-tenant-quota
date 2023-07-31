@@ -103,13 +103,15 @@ var _ = Describe("Cert rotation tests", func() {
 
 		}, 60*time.Second, 1*time.Second).Should(BeTrue())
 
-		Eventually(func() bool {
+		Eventually(func() error {
 			updatedBundle, err := f.K8sClient.CoreV1().ConfigMaps(f.MTQInstallNs).Get(context.TODO(), configMapName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			return updatedBundle.Data["ca-bundle.crt"] != oldBundle.Data["ca-bundle.crt"]
-
-		}, 60*time.Second, 1*time.Second).Should(BeTrue())
+			if updatedBundle.Data["ca-bundle.crt"] == oldBundle.Data["ca-bundle.crt"] {
+				return fmt.Errorf("bundle data should be updated")
+			}
+			return nil
+		}, 60*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 
 	})
 })

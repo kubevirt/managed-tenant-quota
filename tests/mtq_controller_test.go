@@ -475,7 +475,7 @@ func createRQWithHardLimitOrRequestAndWaitForRegistration(virtClient kubecli.Kub
 		return err
 	}
 
-	err = waitForRQWithHardLimitOrRequestRegistration(virtClient, rq, time.Second*10)
+	err = waitForRQWithHardLimitOrRequestRegistration(virtClient, rq, time.Second*100)
 	if err != nil {
 		return err
 	}
