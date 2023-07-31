@@ -23,7 +23,6 @@ import (
 
 var _ = Describe("Blocked migration", func() {
 	f := framework.NewFramework("fake-test")
-	mtqNs := "mtq"
 	AfterEach(func() {
 		Eventually(func() error {
 			return validating_webhook_lock.UnlockNamespace(f.Namespace.GetName(), f.VirtClient)
@@ -62,13 +61,13 @@ var _ = Describe("Blocked migration", func() {
 		}
 		serverBundleFetcher := &fetcher.ConfigMapCertBundleFetcher{
 			Name:   "mtq-lock-signer-bundle",
-			Client: f.VirtClient.CoreV1().ConfigMaps(mtqNs),
+			Client: f.VirtClient.CoreV1().ConfigMaps(f.MTQInstallNs),
 		}
 		caBundle, err := serverBundleFetcher.BundleBytes()
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(func() error {
-			return validating_webhook_lock.LockNamespace(f.Namespace.GetName(), mtqNs, f.VirtClient, caBundle)
+			return validating_webhook_lock.LockNamespace(f.Namespace.GetName(), f.MTQInstallNs, f.VirtClient, caBundle)
 		}, 20*time.Second, 1*time.Second).ShouldNot(HaveOccurred(), "should be able to lock namespaced")
 
 		Consistently(func() string {
@@ -89,13 +88,13 @@ var _ = Describe("Blocked migration", func() {
 
 		serverBundleFetcher := &fetcher.ConfigMapCertBundleFetcher{
 			Name:   "mtq-lock-signer-bundle",
-			Client: f.VirtClient.CoreV1().ConfigMaps(mtqNs),
+			Client: f.VirtClient.CoreV1().ConfigMaps(f.MTQInstallNs),
 		}
 		caBundle, err := serverBundleFetcher.BundleBytes()
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(func() error {
-			return validating_webhook_lock.LockNamespace(f.Namespace.GetName(), mtqNs, f.VirtClient, caBundle)
+			return validating_webhook_lock.LockNamespace(f.Namespace.GetName(), f.MTQInstallNs, f.VirtClient, caBundle)
 		}, 20*time.Second, 1*time.Second).ShouldNot(HaveOccurred(), "should be able to lock namespaced")
 
 		vmi, err = f.VirtClient.VirtualMachineInstance(vmi.Namespace).Create(context.TODO(), vmi)
@@ -126,13 +125,13 @@ var _ = Describe("Blocked migration", func() {
 
 		serverBundleFetcher := &fetcher.ConfigMapCertBundleFetcher{
 			Name:   "mtq-lock-signer-bundle",
-			Client: f.VirtClient.CoreV1().ConfigMaps(mtqNs),
+			Client: f.VirtClient.CoreV1().ConfigMaps(f.MTQInstallNs),
 		}
 		caBundle, err := serverBundleFetcher.BundleBytes()
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(func() error {
-			return validating_webhook_lock.LockNamespace(f.Namespace.GetName(), mtqNs, f.VirtClient, caBundle)
+			return validating_webhook_lock.LockNamespace(f.Namespace.GetName(), f.MTQInstallNs, f.VirtClient, caBundle)
 		}, 20*time.Second, 1*time.Second).ShouldNot(HaveOccurred(), "should be able to lock namespaced")
 		rq.Spec.Hard[v1.ResourceRequestsMemory] = resource.MustParse("612Mi")
 		Consistently(func() string {
@@ -155,13 +154,13 @@ var _ = Describe("Blocked migration", func() {
 
 		serverBundleFetcher := &fetcher.ConfigMapCertBundleFetcher{
 			Name:   "mtq-lock-signer-bundle",
-			Client: f.VirtClient.CoreV1().ConfigMaps(mtqNs),
+			Client: f.VirtClient.CoreV1().ConfigMaps(f.MTQInstallNs),
 		}
 		caBundle, err := serverBundleFetcher.BundleBytes()
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(func() error {
-			return validating_webhook_lock.LockNamespace(f.Namespace.GetName(), mtqNs, f.VirtClient, caBundle)
+			return validating_webhook_lock.LockNamespace(f.Namespace.GetName(), f.MTQInstallNs, f.VirtClient, caBundle)
 		}, 20*time.Second, 1*time.Second).ShouldNot(HaveOccurred(), "should be able to lock namespaced")
 
 		Consistently(func() string {
@@ -181,13 +180,13 @@ var _ = Describe("Blocked migration", func() {
 
 		serverBundleFetcher := &fetcher.ConfigMapCertBundleFetcher{
 			Name:   "mtq-lock-signer-bundle",
-			Client: f.VirtClient.CoreV1().ConfigMaps(mtqNs),
+			Client: f.VirtClient.CoreV1().ConfigMaps(f.MTQInstallNs),
 		}
 		caBundle, err := serverBundleFetcher.BundleBytes()
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(func() error {
-			return validating_webhook_lock.LockNamespace(f.Namespace.GetName(), mtqNs, f.VirtClient, caBundle)
+			return validating_webhook_lock.LockNamespace(f.Namespace.GetName(), f.MTQInstallNs, f.VirtClient, caBundle)
 		}, 20*time.Second, 1*time.Second).ShouldNot(HaveOccurred(), "should be able to lock namespaced")
 
 		Consistently(func() string {
@@ -207,13 +206,13 @@ var _ = Describe("Blocked migration", func() {
 		vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 		serverBundleFetcher := &fetcher.ConfigMapCertBundleFetcher{
 			Name:   "mtq-lock-signer-bundle",
-			Client: f.VirtClient.CoreV1().ConfigMaps(mtqNs),
+			Client: f.VirtClient.CoreV1().ConfigMaps(f.MTQInstallNs),
 		}
 		caBundle, err := serverBundleFetcher.BundleBytes()
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(func() error {
-			return validating_webhook_lock.LockNamespace(f.Namespace.GetName(), mtqNs, f.VirtClient, caBundle)
+			return validating_webhook_lock.LockNamespace(f.Namespace.GetName(), f.MTQInstallNs, f.VirtClient, caBundle)
 		}, 20*time.Second, 1*time.Second).ShouldNot(HaveOccurred(), "should be able to lock namespaced")
 
 		migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)

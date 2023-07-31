@@ -111,7 +111,7 @@ var _ = Describe("Cert rotation tests", func() {
 				return fmt.Errorf("bundle data should be updated")
 			}
 			return nil
-		}, 60*time.Second, 1*time.Second).Should(BeTrue())
+		}, 60*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 
 	})
 })
