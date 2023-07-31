@@ -34,17 +34,8 @@ for target in ${PUSH_TARGETS[@]}; do
             docker "${docker_opt}" -t ${IMAGE} . -f Dockerfile.${BIN_NAME}
         )
     elif [ "${docker_opt}" == "push" ]; then
-        if [ "${DOCKER_PREFIX}" == "kubevirt" ]; then
-            echo "Pushes to docker.io/kubevirt should only be performed by CI."
-            echo "Set DOCKER_PREFIX and DOCKER_TAG (default :latest) to target other repositories."
-            exit 1
-        fi
         docker "${docker_opt}" "${IMAGE}"
     elif [ "${docker_opt}" == "publish" ]; then
-        if [ -z "${TRAVIS}" ]; then
-            echo "Publishing releases should only be performed by the CI. "
-            exit 1
-        fi
         docker push ${IMAGE}
     fi
 done

@@ -43,7 +43,7 @@ ifeq ($(origin KUBEVIRT_RELEASE), undefined)
 	KUBEVIRT_RELEASE="latest_nightly"
 endif
 
-all: manifests bazel-build-images
+all: manifests build-images
 
 manifests:
 	${DO_BAZ} "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} VERBOSITY=${VERBOSITY} PULL_POLICY=${PULL_POLICY} CR_NAME=${CR_NAME} MTQ_NAMESPACE=${MTQ_NAMESPACE} ./hack/build/build-manifests.sh"
