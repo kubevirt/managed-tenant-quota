@@ -75,10 +75,8 @@ push: build-images push-images
 cluster-clean-mtq:
 	./cluster-sync/clean.sh
 
-cluster-sync-mtq: cluster-clean-mtq
+cluster-sync: cluster-clean-mtq
 	./cluster-sync/sync.sh MTQ_AVAILABLE_TIMEOUT=${MTQ_AVAILABLE_TIMEOUT} DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} PULL_POLICY=${PULL_POLICY} MTQ_NAMESPACE=${MTQ_NAMESPACE}
-
-cluster-sync: cluster-sync-mtq
 
 test: WHAT = ./pkg/... ./cmd/...
 test: bootstrap-ginkgo
@@ -109,10 +107,6 @@ mtq_lock_server:
 clean:
 	rm ./mtq_controller ./mtq_operator ./mtq_lock_server -f
 
-dist-clean: clean
-	docker rmi -f `docker images 'quay.io/bmordeha/kubevirt/mtq_controller' -a -q`
-	docker rmi -f `docker images 'quay.io/bmordeha/kubevirt/mtq_lock_server' -a -q`
-	docker rmi -f `docker images 'quay.io/bmordeha/kubevirt/mtq_operator' -a -q`
 
 fmt:
 	go fmt .
