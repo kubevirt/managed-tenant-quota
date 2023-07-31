@@ -10,5 +10,5 @@ delete5vmis
 _ci-configs/*
 0
 bin/
-_out/tests/tests.test
+_out/*
 .coverprofile
