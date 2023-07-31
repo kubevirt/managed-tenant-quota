@@ -11,4 +11,5 @@ _ci-configs/*
 0
 bin/
 _out/*
+manifests/generated/*
 .coverprofile
