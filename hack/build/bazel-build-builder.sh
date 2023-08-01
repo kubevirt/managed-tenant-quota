@@ -17,7 +17,6 @@
 set -e
 script_dir="$(cd "$(dirname "$0")" && pwd -P)"
 source "${script_dir}"/common.sh
-
 source "${script_dir}"/config.sh
 
 if [ "${MTQ_CONTAINER_BUILDCMD}" = "buildah" ]; then
