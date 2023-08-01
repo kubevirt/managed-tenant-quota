@@ -24,11 +24,10 @@ CODEGEN_PKG=${CODEGEN_PKG:-$(
     cd ${SCRIPT_ROOT}
     ls -d -1 ./vendor/k8s.io/code-generator 2>/dev/null || echo ../code-generator
 )}
-
+  
 find "${SCRIPT_ROOT}/pkg/" -name "*generated*.go" -exec rm {} -f \;
 find "${SCRIPT_ROOT}/staging/src/kubevirt.io/managed-tenant-quota-api/" -name "*generated*.go" -exec rm {} -f \;
 rm -rf "${SCRIPT_ROOT}/pkg/generated"
-
 
 # generate the code with:
 # --output-base    because this script should also be able to run inside the vendor dir of
@@ -39,7 +38,6 @@ rm -rf "${SCRIPT_ROOT}/pkg/generated"
   kubevirt.io/managed-tenant-quota/staging/src/kubevirt.io/managed-tenant-quota-api/pkg/apis  \
     "core:v1alpha1 " \
     --go-header-file ${SCRIPT_ROOT}/hack/custom-boilerplate.go.txt
-
 echo "************* running controller-gen to generate schema yaml ********************"
 (
     mkdir -p "${SCRIPT_ROOT}/_out/manifests/schema"
