@@ -1,5 +1,4 @@
 .idea/
-examples
 mtq_controller
 mtq_operator
 mtq_lock_server
