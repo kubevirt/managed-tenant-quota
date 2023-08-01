@@ -20,22 +20,37 @@ script_dir="$(readlink -f $(dirname $0))"
 source "${script_dir}"/common.sh
 source "${script_dir}"/config.sh
 
-docker_opt="${1:-build}"
+opt="${1:-build}"
+
+if ! command -v docker &> /dev/null && ! command -v podman &> /dev/null; then
+    echo "Error: Neither Docker nor Podman found. Please install one of them."
+    exit 1
+fi
+
+cri_cmd=""
+insecure=""
+if command -v podman &> /dev/null; then
+    cri_cmd="podman"
+    insecure="--tls-verify=false"
+else
+    cri_cmd="docker"
+fi
 
 PUSH_TARGETS=(${PUSH_TARGETS:-$CONTROLLER_IMAGE_NAME $MTQ_LOCK_SERVER_IMAGE_NAME $OPERATOR_IMAGE_NAME})
-echo "docker_prefix: $DOCKER_PREFIX, docker_tag: $DOCKER_TAG"
+echo "Using ${cri_cmd}, docker_prefix: $DOCKER_PREFIX, docker_tag: $DOCKER_TAG"
 for target in ${PUSH_TARGETS[@]}; do
     BIN_NAME="${target}"
     IMAGE="${DOCKER_PREFIX}/${BIN_NAME}:${DOCKER_TAG}"
 
-    if [ "${docker_opt}" == "build" ]; then
+    if [ "${opt}" == "build" ]; then
         (
-        pwd
-            docker "${docker_opt}" -t ${IMAGE} . -f Dockerfile.${BIN_NAME}
+            pwd
+            ${cri_cmd} "${opt}" -t ${IMAGE} . -f Dockerfile.${BIN_NAME}
         )
-    elif [ "${docker_opt}" == "push" ]; then
-        docker "${docker_opt}" "${IMAGE}"
-    elif [ "${docker_opt}" == "publish" ]; then
-        docker push ${IMAGE}
+    elif [ "${opt}" == "push" ]; then
+        echo "${cri_cmd} ${insecure} ${opt} ${IMAGE}"
+        ${cri_cmd} "${opt}" ${insecure} "${IMAGE}"
+    elif [ "${opt}" == "publish" ]; then
+        ${cri_cmd} push ${insecure} ${IMAGE}
     fi
 done
