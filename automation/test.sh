@@ -33,7 +33,7 @@ if [[ -n "$RANDOM_CR" ]]; then
 fi
 
 readonly ARTIFACTS_PATH="${ARTIFACTS}"
-readonly BAZEL_CACHE="${BAZEL_CACHE:-http://bazel-cache.kubevirt-prow.svc.cluster.local:8080/kubevirt.io/containerized-data-importer}"
+readonly BAZEL_CACHE="${BAZEL_CACHE:-http://bazel-cache.kubevirt-prow.svc.cluster.local:8080/kubevirt.io/managed-tenant-quota}"
 
 source hack/common-funcs.sh
 

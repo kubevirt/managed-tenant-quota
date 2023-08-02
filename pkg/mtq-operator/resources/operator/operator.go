@@ -1,6 +1,10 @@
 package operator
 
 import (
+	"encoding/json"
+	"github.com/coreos/go-semver/semver"
+	csvv1 "github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"kubevirt.io/managed-tenant-quota/pkg/mtq-operator/resources"
 	utils2 "kubevirt.io/managed-tenant-quota/pkg/mtq-operator/resources/utils"
 	"strings"
@@ -291,4 +295,232 @@ func createPrometheusPorts() []corev1.ContainerPort {
 			Protocol:      "TCP",
 		},
 	}
+}
+
+type csvPermissions struct {
+	ServiceAccountName string              `json:"serviceAccountName"`
+	Rules              []rbacv1.PolicyRule `json:"rules"`
+}
+type csvDeployments struct {
+	Name string                `json:"name"`
+	Spec appsv1.DeploymentSpec `json:"spec,omitempty"`
+}
+
+type csvStrategySpec struct {
+	Permissions        []csvPermissions `json:"permissions"`
+	ClusterPermissions []csvPermissions `json:"clusterPermissions"`
+	Deployments        []csvDeployments `json:"deployments"`
+}
+
+func createClusterServiceVersion(data *ClusterServiceVersionData) (*csvv1.ClusterServiceVersion, error) {
+
+	description := `
+MTQ is a kubernetes extension that provides Multi Tenancy support to kubevirt
+
+_The MTQ Operator does not support updates yet._
+`
+
+	deployment := createOperatorDeployment(
+		data.OperatorVersion,
+		data.Namespace,
+		"true",
+		data.OperatorImage,
+		data.ControllerImage,
+		data.WebhookServerImage,
+		data.Verbosity,
+		data.ImagePullPolicy,
+		data.ImagePullSecrets)
+
+	deployment.Spec.Template.Spec.PriorityClassName = utils2.MTQPriorityClass
+
+	strategySpec := csvStrategySpec{
+		Permissions: []csvPermissions{
+			{
+				ServiceAccountName: serviceAccountName,
+				Rules:              getNamespacedPolicyRules(),
+			},
+		},
+		ClusterPermissions: []csvPermissions{
+			{
+				ServiceAccountName: serviceAccountName,
+				Rules:              getClusterPolicyRules(),
+			},
+		},
+		Deployments: []csvDeployments{
+			{
+				Name: "mtq-operator",
+				Spec: deployment.Spec,
+			},
+		},
+	}
+
+	strategySpecJSONBytes, err := json.Marshal(strategySpec)
+	if err != nil {
+		return nil, err
+	}
+
+	return &csvv1.ClusterServiceVersion{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ClusterServiceVersion",
+			APIVersion: "operators.coreos.com/v1alpha1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "mtqoperator." + data.CsvVersion,
+			Namespace: data.Namespace,
+			Annotations: map[string]string{
+
+				"capabilities": "Full Lifecycle",
+				"categories":   "Storage,Virtualization",
+				"alm-examples": `
+      [
+        {
+          "apiVersion":"mtq.kubevirt.io/v1beta1",
+          "kind":"MTQ",
+          "metadata": {
+            "name":"mtq",
+            "namespace":"mtq"
+          },
+          "spec": {
+            "imagePullPolicy":"IfNotPresent"
+          }
+        }
+      ]`,
+				"description": "Creates and maintains MTQ deployments",
+			},
+		},
+
+		Spec: csvv1.ClusterServiceVersionSpec{
+			DisplayName: "MTQ",
+			Description: description,
+			Keywords:    []string{"MTQ", "Virtualization", "MultiTenancy"},
+			Version:     *semver.New(data.CsvVersion),
+			Maturity:    "alpha",
+			Replaces:    data.ReplacesCsvVersion,
+			Maintainers: []csvv1.Maintainer{{
+				Name:  "KubeVirt project",
+				Email: "kubevirt-dev@googlegroups.com",
+			}},
+			Provider: csvv1.AppLink{
+				Name: "KubeVirt/MTQ project",
+			},
+			Links: []csvv1.AppLink{
+				{
+					Name: "MTQ",
+					URL:  "https://github.com/kubevirt/managed-tenant-quota/blob/main/README.md",
+				},
+				{
+					Name: "Source Code",
+					URL:  "https://github.com/kubevirt/managed-tenant-quota",
+				},
+			},
+			Icon: []csvv1.Icon{{
+				Data:      data.IconBase64,
+				MediaType: "image/png",
+			}},
+			Labels: map[string]string{
+				"alm-owner-mtq": "mtq-operator",
+				"operated-by":   "mtq-operator",
+			},
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"alm-owner-mtq": "mtq-operator",
+					"operated-by":   "mtq-operator",
+				},
+			},
+			InstallModes: []csvv1.InstallMode{
+				{
+					Type:      csvv1.InstallModeTypeOwnNamespace,
+					Supported: true,
+				},
+				{
+					Type:      csvv1.InstallModeTypeSingleNamespace,
+					Supported: true,
+				},
+				{
+					Type:      csvv1.InstallModeTypeMultiNamespace,
+					Supported: true,
+				},
+				{
+					Type:      csvv1.InstallModeTypeAllNamespaces,
+					Supported: true,
+				},
+			},
+			InstallStrategy: csvv1.NamedInstallStrategy{
+				StrategyName:    "deployment",
+				StrategySpecRaw: json.RawMessage(strategySpecJSONBytes),
+			},
+			CustomResourceDefinitions: csvv1.CustomResourceDefinitions{
+
+				Owned: []csvv1.CRDDescription{
+					{
+						Name:        "mtqs.mtq.kubevirt.io",
+						Version:     "v1beta1",
+						Kind:        "MTQ",
+						DisplayName: "MTQ deployment",
+						Description: "Represents a MTQ deployment",
+						Resources: []csvv1.APIResourceReference{
+							{
+								Kind:    "ConfigMap",
+								Name:    "mtq-operator-leader-election-helper",
+								Version: "v1",
+							},
+						},
+						SpecDescriptors: []csvv1.SpecDescriptor{
+
+							{
+								Description:  "The ImageRegistry to use for the MTQ components.",
+								DisplayName:  "ImageRegistry",
+								Path:         "imageRegistry",
+								XDescriptors: []string{"urn:alm:descriptor:text"},
+							},
+							{
+								Description:  "The ImageTag to use for the MTQ components.",
+								DisplayName:  "ImageTag",
+								Path:         "imageTag",
+								XDescriptors: []string{"urn:alm:descriptor:text"},
+							},
+							{
+								Description:  "The ImagePullPolicy to use for the MTQ components.",
+								DisplayName:  "ImagePullPolicy",
+								Path:         "imagePullPolicy",
+								XDescriptors: []string{"urn:alm:descriptor:io.kubernetes:imagePullPolicy"},
+							},
+						},
+						StatusDescriptors: []csvv1.StatusDescriptor{
+							{
+								Description:  "The deployment phase.",
+								DisplayName:  "Phase",
+								Path:         "phase",
+								XDescriptors: []string{"urn:alm:descriptor:io.kubernetes.phase"},
+							},
+							{
+								Description:  "Explanation for the current status of the MTQ deployment.",
+								DisplayName:  "Conditions",
+								Path:         "conditions",
+								XDescriptors: []string{"urn:alm:descriptor:io.kubernetes.conditions"},
+							},
+							{
+								Description:  "The observed version of the MTQ deployment.",
+								DisplayName:  "Observed MTQ Version",
+								Path:         "observedVersion",
+								XDescriptors: []string{"urn:alm:descriptor:text"},
+							},
+							{
+								Description:  "The targeted version of the MTQ deployment.",
+								DisplayName:  "Target MTQ Version",
+								Path:         "targetVersion",
+								XDescriptors: []string{"urn:alm:descriptor:text"},
+							},
+							{
+								Description:  "The version of the MTQ Operator",
+								DisplayName:  "MTQ Operator Version",
+								Path:         "operatorVersion",
+								XDescriptors: []string{"urn:alm:descriptor:text"},
+							},
+						},
+					},
+				},
+			},
+		},
+	}, nil
 }

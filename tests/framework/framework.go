@@ -8,7 +8,6 @@ import (
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/containerized-data-importer/pkg/common"
 	"net/http"
 
 	"os"
@@ -35,13 +34,18 @@ import (
 	"k8s.io/klog/v2"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
-	featuregates "kubevirt.io/containerized-data-importer/pkg/feature-gates"
 	mtqClientset "kubevirt.io/managed-tenant-quota/pkg/generated/clientset/versioned"
 	mtqv1 "kubevirt.io/managed-tenant-quota/staging/src/kubevirt.io/managed-tenant-quota-api/pkg/apis/core/v1alpha1"
 )
 
 const (
-	nsCreateTime = 60 * time.Second
+	// PrometheusLabelKey provides the label to indicate prometheus metrics are available in the pods.
+	PrometheusLabelKey = "prometheus.mtq.kubevirt.io"
+	// PrometheusLabelValue provides the label value which shouldn't be empty to avoid a prometheus WIP issue.
+	PrometheusLabelValue = "true"
+	// HonorWaitForFirstConsumer - if enabled will not schedule worker pods on a storage with WaitForFirstConsumer binding mode
+	HonorWaitForFirstConsumer = "HonorWaitForFirstConsumer"
+	nsCreateTime              = 60 * time.Second
 	//NsPrefixLabel provides a mtq prefix label to identify the test namespace
 	NsPrefixLabel   = "mtq-e2e"
 	timeout         = time.Second * 90
@@ -113,7 +117,7 @@ type Framework struct {
 // cannot work when called during test tree construction.
 func NewFramework(prefix string, config ...Config) *Framework {
 	cfg := Config{
-		FeatureGates: []string{featuregates.HonorWaitForFirstConsumer},
+		FeatureGates: []string{HonorWaitForFirstConsumer},
 	}
 	if len(config) > 0 {
 		cfg = config[0]
@@ -365,8 +369,8 @@ func (f *Framework) CreatePrometheusServiceInNs(namespace string) (*v1.Service, 
 			Name:      "kubevirt-prometheus-metrics",
 			Namespace: namespace,
 			Labels: map[string]string{
-				common.PrometheusLabelKey: common.PrometheusLabelValue,
-				"kubevirt.io":             "",
+				PrometheusLabelKey: PrometheusLabelValue,
+				"kubevirt.io":      "",
 			},
 		},
 		Spec: v1.ServiceSpec{
@@ -381,7 +385,7 @@ func (f *Framework) CreatePrometheusServiceInNs(namespace string) (*v1.Service, 
 				},
 			},
 			Selector: map[string]string{
-				common.PrometheusLabelKey: common.PrometheusLabelValue,
+				PrometheusLabelKey: PrometheusLabelValue,
 			},
 		},
 	}
