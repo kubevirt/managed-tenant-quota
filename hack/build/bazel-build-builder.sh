@@ -28,7 +28,7 @@ if [ "${MTQ_CONTAINER_BUILDCMD}" = "buildah" ]; then
     fi
 fi
 
-if ! git diff-index --quiet HEAD~1 hack/build/docker; then
+#if ! git diff-index --quiet HEAD~1 hack/build/docker; then
     #Since this only runs during the post-submit job, the PR will have squashed into a single
     #commit and we can use HEAD~1 to compare.
     BUILDER_SPEC="${BUILD_DIR}/docker/builder"
@@ -49,4 +49,4 @@ if ! git diff-index --quiet HEAD~1 hack/build/docker; then
     DIGEST=$(docker images --digests | grep ${UNTAGGED_BUILDER_IMAGE} | grep ${BUILDER_TAG} | awk '{ print $4 }')
     echo "Image: ${BUILDER_MANIFEST}"
     echo "Digest: ${DIGEST}"
-fi
+#fi
