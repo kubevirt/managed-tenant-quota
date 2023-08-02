@@ -3,6 +3,9 @@ package operator
 import (
 	"fmt"
 
+	csvv1 "github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1"
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -65,4 +68,14 @@ func CreateOperatorResourceGroup(group string, args *FactoryArgs) ([]client.Obje
 		utils.ValidateGVKs([]runtime.Object{r})
 	}
 	return resources, nil
+}
+
+// NewMtqCrd - provides MTQ CRD
+func NewMtqCrd() *extv1.CustomResourceDefinition {
+	return createMTQListCRD()
+}
+
+// NewClusterServiceVersion - generates CSV for CDI
+func NewClusterServiceVersion(data *ClusterServiceVersionData) (*csvv1.ClusterServiceVersion, error) {
+	return createClusterServiceVersion(data)
 }

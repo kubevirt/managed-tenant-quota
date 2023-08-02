@@ -52,10 +52,6 @@ var (
 	operatorImage          = flag.String("operator-image", "", "")
 	controllerImage        = flag.String("controller-image", "", "")
 	mtqLockServerImage     = flag.String("mtq-lock-server-image", "", "")
-	clonerImage            = flag.String("cloner-image", "", "")
-	apiServerImage         = flag.String("apiserver-image", "", "")
-	uploadProxyImage       = flag.String("uploadproxy-image", "", "")
-	uploadServerImage      = flag.String("uploadserver-image", "", "")
 	verbosity              = flag.String("verbosity", "1", "")
 	pullPolicy             = flag.String("pull-policy", "", "")
 	crName                 = flag.String("cr-name", "", "")
@@ -97,10 +93,6 @@ func generateFromFile(templFile string) {
 		OperatorImage:          *operatorImage,
 		ControllerImage:        *controllerImage,
 		MTQLockServerImage:     *mtqLockServerImage,
-		ClonerImage:            *clonerImage,
-		APIServerImage:         *apiServerImage,
-		UploadProxyImage:       *uploadProxyImage,
-		UploadServerImage:      *uploadServerImage,
 		PullPolicy:             *pullPolicy,
 		CrName:                 *crName,
 		Namespace:              *namespace,

@@ -956,7 +956,7 @@ var _ = Describe("Controller", func() {
 				func() (client.Object, error) {
 					const imagePullSecretName = "fake-registry-key"
 					var imagePullSecrets = []corev1.LocalObjectReference{{Name: imagePullSecretName}}
-					deployment := utils.CreateDeployment("fake-mtq-deployment", "app", "containerized-data-importer", "fake-sa", imagePullSecrets, int32(1), &sdkapi.NodePlacement{})
+					deployment := utils.CreateDeployment("fake-mtq-deployment", "app", "managed-tenant-quota", "fake-sa", imagePullSecrets, int32(1), &sdkapi.NodePlacement{})
 					return deployment, nil
 				}),
 			Entry("verify - unused service deleted",
