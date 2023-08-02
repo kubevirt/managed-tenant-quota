@@ -21,9 +21,9 @@ VERBOSITY=${VERBOSITY:-1}
 PULL_POLICY=${PULL_POLICY:-Always}
 MTQ_NAMESPACE=${MTQ_NAMESPACE:-mtq}
 CR_NAME=${CR_NAME:-mtq}
-#todo: change the image to point to kubevirt repo and not bmordeha's
+
 # update this whenever new builder tag is created
-BUILDER_IMAGE=${BUILDER_IMAGE:-quay.io/bmordeha/kubevirt/kubevirt-mtq-bazel-builder:2306201325-0dfe3ff}
+BUILDER_IMAGE=${BUILDER_IMAGE:-quay.io/kubevirt/kubevirt-mtq-bazel-builder:2308020931-11f239f}
 
 function parseTestOpts() {
     pkgs=""
