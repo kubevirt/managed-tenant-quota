@@ -48,7 +48,6 @@ for target in ${PUSH_TARGETS[@]}; do
             ${cri_cmd} "${opt}" -t ${IMAGE} . -f Dockerfile.${BIN_NAME}
         )
     elif [ "${opt}" == "push" ]; then
-        echo "${cri_cmd} ${insecure} ${opt} ${IMAGE}"
         ${cri_cmd} "${opt}" ${insecure} "${IMAGE}"
     elif [ "${opt}" == "publish" ]; then
         ${cri_cmd} push ${insecure} ${IMAGE}
