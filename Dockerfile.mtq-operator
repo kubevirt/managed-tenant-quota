@@ -7,6 +7,7 @@ RUN apk update && apk add make
 
 # Copy the source code from the host to the container
 COPY pkg /workdir/app/pkg
+COPY tools /workdir/app/tools
 COPY staging /workdir/app/staging
 COPY cmd /workdir/app/cmd
 COPY vendor /workdir/app/vendor
@@ -17,6 +18,7 @@ COPY Makefile /workdir/app/Makefile
 WORKDIR /workdir/app
 
 RUN make mtq_operator
+RUN make csv-generator
 
 # Final stage
 FROM golang:1.19-alpine
@@ -24,6 +26,7 @@ FROM golang:1.19-alpine
 
 # Copy the binary from the builder stage to the final image
 COPY --from=builder /workdir/app/mtq_operator /app/mtq_operator
+COPY --from=builder /workdir/app/bin/csv-generator /usr/bin/csv-generator
 
 # Set the working directory to /app
 WORKDIR /app

@@ -12,9 +12,9 @@
 #See the License for the specific language governing permissions and
 #limitations under the License.
 
-OPERATOR_IMAGE_NAME=${OPERATOR_IMAGE_NAME:-mtq_operator}
-CONTROLLER_IMAGE_NAME=${CONTROLLER_IMAGE_NAME:-mtq_controller}
-MTQ_LOCK_SERVER_IMAGE_NAME=${MTQ_LOCK_SERVER_IMAGE_NAME:-mtq_lock_server}
+OPERATOR_IMAGE_NAME=${OPERATOR_IMAGE_NAME:-mtq-operator}
+CONTROLLER_IMAGE_NAME=${CONTROLLER_IMAGE_NAME:-mtq-controller}
+MTQ_LOCK_SERVER_IMAGE_NAME=${MTQ_LOCK_SERVER_IMAGE_NAME:-mtq-lock-server}
 DOCKER_PREFIX=${DOCKER_PREFIX:-"quay.io/kubevirt"}
 DOCKER_TAG=${DOCKER_TAG:-latest}
 VERBOSITY=${VERBOSITY:-1}

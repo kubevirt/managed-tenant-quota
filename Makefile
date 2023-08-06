@@ -104,6 +104,10 @@ mtq_lock_server:
 	go build -o mtq_lock_server -v cmd/mtq-lock-server/*.go
 	chmod 777 mtq_lock_server
 
+csv-generator:
+	go build -o bin/csv-generator -v tools/csv-generator/csv-generator.go
+	chmod 777 bin/csv-generator
+
 clean:
 	rm ./mtq_controller ./mtq_operator ./mtq_lock_server -f
 

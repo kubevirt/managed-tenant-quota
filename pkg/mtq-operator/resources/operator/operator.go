@@ -374,7 +374,7 @@ _The MTQ Operator does not support updates yet._
 				"alm-examples": `
       [
         {
-          "apiVersion":"mtq.kubevirt.io/v1beta1",
+          "apiVersion":"mtq.kubevirt.io/v1alpha1",
           "kind":"MTQ",
           "metadata": {
             "name":"mtq",
@@ -454,7 +454,7 @@ _The MTQ Operator does not support updates yet._
 				Owned: []csvv1.CRDDescription{
 					{
 						Name:        "mtqs.mtq.kubevirt.io",
-						Version:     "v1beta1",
+						Version:     "v1alpha1",
 						Kind:        "MTQ",
 						DisplayName: "MTQ deployment",
 						Description: "Represents a MTQ deployment",
