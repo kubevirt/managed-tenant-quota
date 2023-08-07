@@ -113,7 +113,7 @@ func NewManagedQuotaController(virtCli kubecli.KubevirtClient,
 }
 
 // When a virtualMachineMigrationResourceQuota is added, figure out if there are pending migration in the namespace
-// if there are we should push them into the queue to accelerate the target creation process
+// if there are we should push them into the queue to accelerate the target creation process.
 func (ctrl *ManagedQuotaController) addVmmrq(obj interface{}) {
 	err := ctrl.setKVInformersAndTmplSrvIfNeeded()
 	if err != nil {
