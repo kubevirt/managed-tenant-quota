@@ -32,7 +32,7 @@ Here's how it works:
 Tenants are provided with a namespaced Custom Resource called VirtualMachineMigrationResourceQuota.
 This CR allows temporary resource allocation for admitting live-migration target pods.
 
-## Deploy it on your cluster
+### Deploy it on your cluster
 
 Deploying the MTQ controller is straightforward. 
 
@@ -43,7 +43,7 @@ Deploying the MTQ controller is straightforward.
   ```
 
 
-## Deploy it with our CI system
+### Deploy it with our CI system
 
 MTQ includes a self contained development and test environment.  We use Docker to build, and we provide a simple way to get a test cluster up and running on your laptop. The development tools include a version of kubectl that you can use to communicate with the cluster. A wrapper script to communicate with the cluster can be invoked using ./cluster-up/kubectl.sh.
 
@@ -58,7 +58,7 @@ For development on external cluster (not provisioned by our MTQ),
 check out the [external provider](cluster-sync/external/README.md).
 
 
-#### VirtualMachineMigrationResourceQuota
+### VirtualMachineMigrationResourceQuota
 **When a VirtualMachineInstanceMigration encounters resourceQuota limitations and v is deployed in the namespace, the controller takes the following steps:**
 
 1. If at least a single blocked migration resources meet the VirtualMachineMigrationResourceQuota resource limitations, the controller locks the namespace by creating dedicated validatingWebhookConfiguration, ensuring exclusive resource 
@@ -91,7 +91,9 @@ that is used to define resources limitations.
 While `VirtualMachineMigrationResourceQuota.spec.additionalMigrationResources` field represent the desired state the actual state is represented by
 `VirtualMachineMigrationResourceQuota.spec.AdditionalMigrationResources` similar to it works with `ResourceQuota.spec.hard` field in ResourceQuota.
 
-In summary, our Managed Quota controller optimizes resource utilization, facilitates seamless migrations, 
+### summary
+
+Our Managed Quota controller optimizes resource utilization, facilitates seamless migrations, 
 and provides enhanced control and efficiency. It brings significant benefits in terms of
 operational efficiency, and successful migrations.
 
