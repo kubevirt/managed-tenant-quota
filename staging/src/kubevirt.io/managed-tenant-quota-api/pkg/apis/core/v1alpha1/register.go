@@ -23,7 +23,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	virtualMachineMigrationResourceQuota "kubevirt.io/managed-tenant-quota/staging/src/kubevirt.io/managed-tenant-quota-api/pkg/apis/core"
+	virtualMachineMigrationResourceQuota "kubevirt.io/managed-tenant-quota-api/pkg/apis/core"
 )
 
 var (
