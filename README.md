@@ -1,7 +1,4 @@
 # KubeVirt Managed-Tenant-Quota
-
-**Please keep in mind the project still requires thorough testing.**
-
 ## Context:
 
 In a multi-tenant environment, a cluster administrator creates a namespace
@@ -35,9 +32,36 @@ Here's how it works:
 Tenants are provided with a namespaced Custom Resource called VirtualMachineMigrationResourceQuota.
 This CR allows temporary resource allocation for admitting live-migration target pods.
 
-**When a VirtualMachineInstanceMigration encounters resourceQuota limitations, the controller takes the following steps:**
+## Deploy it on your cluster
 
-1. If unlocking is feasible, the controller locks the namespace, ensuring exclusive resource 
+Deploying the MTQ controller is straightforward. 
+
+  ```
+  $ export VERSION=$(curl -s https://api.github.com/repos/kubevirt/managed-tenant-quota/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+  $ kubectl create -f https://github.com/kubevirt/managed-tenant-quota/releases/download/$VERSION/mtq-operator.yaml
+  $ kubectl create -f https://github.com/kubevirt/managed-tenant-quota/releases/download/$VERSION/mtq-cr.yaml
+  ```
+
+
+## Deploy it with our CI system
+
+MTQ includes a self contained development and test environment.  We use Docker to build, and we provide a simple way to get a test cluster up and running on your laptop. The development tools include a version of kubectl that you can use to communicate with the cluster. A wrapper script to communicate with the cluster can be invoked using ./cluster-up/kubectl.sh.
+
+```bash
+$ mkdir $GOPATH/src/kubevirt.io && cd $GOPATH/src/kubevirt.io
+$ git clone https://github.com/kubevirt/managed-tenant-quota && cd managed-tenant-quota
+$ make cluster-up
+$ make cluster-sync
+$ ./cluster-up/kubectl.sh .....
+```
+For development on external cluster (not provisioned by our MTQ),
+check out the [external provider](cluster-sync/external/README.md).
+
+
+#### VirtualMachineMigrationResourceQuota
+**When a VirtualMachineInstanceMigration encounters resourceQuota limitations and v is deployed in the namespace, the controller takes the following steps:**
+
+1. If at least a single blocked migration resources meet the VirtualMachineMigrationResourceQuota resource limitations, the controller locks the namespace by creating dedicated validatingWebhookConfiguration, ensuring exclusive resource 
 allocation for the migration.
 
 2. Dynamically adjusts the blocking resourceQuotas within the namespace, using the resources 
@@ -54,17 +78,18 @@ when the namespace is locked.
 Additionally, the VirtualMachineMigrationResourceQuota in the locked namespace cannot be 
 deleted to preserve the migration process integrity.
 
-**The benefits of our Managed Quota controller include:**
 
-1. Optimized Resource Utilization: It allocates a fixed additional resource capacity for all migrations within a namespace, 
-minimizing resource consumption in individual namespaces and maximizing availability.
+An illustrative instance of a valid VirtualMachineMigrationResourceQuota is available at:
+https://github.com/kubevirt/managed-tenant-quota/blob/main/manifests/VirtualMachineMigrationResourceQuotaExample.yaml
 
-2. Seamless Migration Experience: The controller dynamically adjusts quotas and promptly admits target pods,
-minimizing downtime and ensuring a smooth migration process.
 
-3. Enhanced Control and Efficiency: Administrators gain granular control over resource allocation using 
-VirtualMachineMigrationResourceQuota CRs and the controller. This automated approach simplifies management, 
-improves efficiency, and streamlines migrations.
+VirtualMachineMigrationResourceQuota has only single spec called `additionalMigrationResources` 
+for the sake of simplicity and convenient `VirtualMachineMigrationResourceQuota.spec.additionalMigrationResources` field has the same type as the `ResourceQuota.spec.hard` field 
+that is used to define resources limitations.
+
+
+While `VirtualMachineMigrationResourceQuota.spec.additionalMigrationResources` field represent the desired state the actual state is represented by
+`VirtualMachineMigrationResourceQuota.spec.AdditionalMigrationResources` similar to it works with `ResourceQuota.spec.hard` field in ResourceQuota.
 
 In summary, our Managed Quota controller optimizes resource utilization, facilitates seamless migrations, 
 and provides enhanced control and efficiency. It brings significant benefits in terms of
