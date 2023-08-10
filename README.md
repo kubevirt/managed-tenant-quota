@@ -59,7 +59,7 @@ check out the [external provider](cluster-sync/external/README.md).
 
 
 ### VirtualMachineMigrationResourceQuota
-**When a VirtualMachineInstanceMigration encounters resourceQuota limitations and v is deployed in the namespace, the controller takes the following steps:**
+**When a VirtualMachineInstanceMigration encounters resourceQuota limitations and VirtualMachineMigrationResourceQuota is deployed in the namespace, the controller takes the following steps:**
 
 1. If at least a single blocked migration resources meet the VirtualMachineMigrationResourceQuota resource limitations, the controller locks the namespace by creating dedicated validatingWebhookConfiguration, ensuring exclusive resource 
 allocation for the migration.
@@ -83,7 +83,8 @@ An illustrative instance of a valid VirtualMachineMigrationResourceQuota is avai
 https://github.com/kubevirt/managed-tenant-quota/blob/main/manifests/VirtualMachineMigrationResourceQuotaExample.yaml
 
 
-VirtualMachineMigrationResourceQuota has only single spec called `additionalMigrationResources` 
+VirtualMachineMigrationResourceQuota has only single spec called `additionalMigrationResources`.
+
 for the sake of simplicity and convenient `VirtualMachineMigrationResourceQuota.spec.additionalMigrationResources` field has the same type as the `ResourceQuota.spec.hard` field 
 that is used to define resources limitations.
 
