@@ -95,7 +95,7 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
-	github.com/openshift/api v0.0.0 // indirect
+	github.com/openshift/api v0.0.0
 	github.com/openshift/client-go v0.0.0 // indirect
 	github.com/openshift/custom-resource-status v1.1.2
 	github.com/pborman/uuid v1.2.1 // indirect
@@ -148,7 +148,7 @@ replace (
 	k8s.io/apimachinery => k8s.io/apimachinery v0.26.1
 	k8s.io/apiserver => k8s.io/apiserver v0.26.3
 	k8s.io/cli-runtime => k8s.io/cli-runtime v0.26.3
-	k8s.io/client-go => k8s.io/client-go v0.26.1
+	k8s.io/client-go => k8s.io/client-go v0.26.6
 	k8s.io/cloud-provider => k8s.io/cloud-provider v0.26.3
 	k8s.io/cluster-bootstrap => k8s.io/cluster-bootstrap v0.26.3
 	k8s.io/component-base => k8s.io/component-base v0.26.3
