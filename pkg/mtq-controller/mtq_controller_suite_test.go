@@ -1,13 +1,12 @@
 package mtq_controller_test
 
 import (
-	"testing"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"testing"
 )
 
-func TestMtqController(t *testing.T) {
+func TestMtqControllerApp(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "MtqController Suite")
 }
