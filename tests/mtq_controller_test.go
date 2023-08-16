@@ -15,7 +15,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/testsuite"
-	mtq_controller "kubevirt.io/managed-tenant-quota/pkg/mtq-controller"
+	mtq_controller "kubevirt.io/managed-tenant-quota/pkg/mtq-controller/vmmrq-controller"
 	"kubevirt.io/managed-tenant-quota/tests/events"
 	"kubevirt.io/managed-tenant-quota/tests/framework"
 	"strconv"

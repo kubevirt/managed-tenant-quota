@@ -3,6 +3,7 @@ package namespaced
 import (
 	"fmt"
 	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	utils2 "kubevirt.io/managed-tenant-quota/pkg/mtq-operator/resources/utils"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -44,6 +45,51 @@ func createControllerRole() *rbacv1.Role {
 				"watch",
 			},
 		},
+		{
+			APIGroups: []string{
+				"",
+			},
+			Resources: []string{
+				"endpoints",
+			},
+			Verbs: []string{
+				"get",
+				"list",
+				"watch",
+				"create",
+				"update",
+			},
+		},
+		{
+			APIGroups: []string{
+				"",
+			},
+			Resources: []string{
+				"secrets",
+			},
+			Verbs: []string{
+				"get",
+				"list",
+				"watch",
+			},
+		},
+		{
+			APIGroups: []string{
+				"coordination.k8s.io",
+			},
+			Resources: []string{
+				"leases",
+			},
+			Verbs: []string{
+				"get",
+				"list",
+				"watch",
+				"delete",
+				"update",
+				"create",
+				"patch",
+			},
+		},
 	}
 	return utils2.ResourceBuilder.CreateRole(controllerResourceName, rules)
 }
@@ -59,6 +105,7 @@ func createMTQControllerDeployment(image, verbosity, pullPolicy string, imagePul
 		deployment.Spec.Template.Spec.PriorityClassName = priorityClassName
 	}
 	container := utils2.CreateContainer(controllerResourceName, image, verbosity, pullPolicy)
+	container.Ports = createMTQControllerPorts()
 	container.Env = []corev1.EnvVar{
 		{
 			Name: utils2.InstallerPartOfLabel,
@@ -81,15 +128,17 @@ func createMTQControllerDeployment(image, verbosity, pullPolicy string, imagePul
 	}
 	container.ReadinessProbe = &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{
-			Exec: &corev1.ExecAction{
-				Command: []string{"cat", "/tmp/ready"},
+			HTTPGet: &corev1.HTTPGetAction{
+				Scheme: corev1.URISchemeHTTPS,
+				Port: intstr.IntOrString{
+					Type:   intstr.Int,
+					IntVal: 8443,
+				},
+				Path: "/leader",
 			},
 		},
-		InitialDelaySeconds: 2,
-		PeriodSeconds:       5,
-		FailureThreshold:    3,
-		SuccessThreshold:    1,
-		TimeoutSeconds:      1,
+		InitialDelaySeconds: 15,
+		TimeoutSeconds:      10,
 	}
 	container.Resources = corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
@@ -120,4 +169,12 @@ func createMTQControllerDeployment(image, verbosity, pullPolicy string, imagePul
 		},
 	}
 	return deployment
+}
+func createMTQControllerPorts() []corev1.ContainerPort {
+	return []corev1.ContainerPort{
+		{
+			ContainerPort: 8443,
+			Protocol:      "TCP",
+		},
+	}
 }
