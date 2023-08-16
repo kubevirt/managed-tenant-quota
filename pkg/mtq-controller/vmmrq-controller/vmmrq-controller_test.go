@@ -1,4 +1,4 @@
-package mtq_controller
+package vmmrq_controller
 
 import (
 	. "github.com/onsi/ginkgo/v2"
@@ -88,7 +88,7 @@ var _ = Describe("Test validation of mtq controller", func() {
 			},
 		}
 
-		ctrl := &ManagedQuotaController{}
+		ctrl := &VmmrqController{}
 		rqList := ctrl.getRQListToRestore(currVmmrq, prevVmmrq)
 
 		Expect(rqList).To(HaveLen(1))
@@ -149,7 +149,7 @@ var _ = Describe("Test validation of mtq controller", func() {
 			},
 		}
 
-		ctrl := &ManagedQuotaController{
+		ctrl := &VmmrqController{
 			resourceQuotaInformer: getFakeRQInformer(rqListInNS, ns),
 		}
 
@@ -188,7 +188,7 @@ var _ = Describe("Test validation of mtq controller", func() {
 	})
 	Context("Test getCurrBlockingRQInNS func", func() {
 		It("Make sure rq1 is still blocking even after it's been modified with more resources and that new rq3 is considered and that non blocking rq2 is not included", func() {
-			ctrl := &ManagedQuotaController{
+			ctrl := &VmmrqController{
 				podEvaluator: core.NewPodEvaluator(nil, clock.RealClock{}),
 				recorder:     record.NewFakeRecorder(100),
 			}
@@ -287,7 +287,7 @@ var _ = Describe("Test validation of mtq controller", func() {
 		})
 
 		It("Make sure that we don't include rqs that cannot be unblocked because of lake of resources", func() {
-			ctrl := &ManagedQuotaController{
+			ctrl := &VmmrqController{
 				podEvaluator: core.NewPodEvaluator(nil, clock.RealClock{}),
 				recorder:     record.NewFakeRecorder(100),
 			}
@@ -351,5 +351,4 @@ var _ = Describe("Test validation of mtq controller", func() {
 			Expect(currRQListItems).To(BeEmpty())
 		})
 	})
-
 })

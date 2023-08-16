@@ -1,4 +1,4 @@
-package mtq_controller
+package namespace_lock_utils
 
 type LockState string
 
@@ -16,11 +16,11 @@ func NewNamespaceCache() *NamespaceCache {
 	return &NamespaceCache{make(map[string]LockState)}
 }
 
-func (nc *NamespaceCache) markLockStateUnlocked(namespace string) {
+func (nc *NamespaceCache) MarkLockStateUnlocked(namespace string) {
 	nc.cache[namespace] = Unlocked
 }
 
-func (nc *NamespaceCache) markLockStateLocked(namespace string) {
+func (nc *NamespaceCache) MarkLockStateLocked(namespace string) {
 	nc.cache[namespace] = Locked
 }
 

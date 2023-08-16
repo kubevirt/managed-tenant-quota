@@ -2250,15 +2250,15 @@ spec:
         - name: OPERATOR_VERSION
           value: latest
         - name: CONTROLLER_IMAGE
-          value: registry:5000/mtq_controller:latest
+          value: registry:5000/mtq-controller:latest
         - name: MTQ_LOCK_SERVER_IMAGE
-          value: registry:5000/mtq_lock_server:latest
+          value: registry:5000/mtq-lock-server:latest
         - name: VERBOSITY
           value: "3"
         - name: PULL_POLICY
           value: Always
         - name: MONITORING_NAMESPACE
-        image: registry:5000/mtq_operator:latest
+        image: registry:5000/mtq-operator:latest
         imagePullPolicy: Always
         name: mtq-operator
         ports:
