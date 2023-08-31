@@ -33,38 +33,16 @@ func getClusterPolicyRules() []rbacv1.PolicyRule {
 				"rbac.authorization.k8s.io",
 			},
 			Resources: []string{
-				"rolebindings",
-				"roles",
-			},
-			Verbs: []string{
-				"*",
-			},
-		},
-		{
-			APIGroups: []string{
-				"rbac.authorization.k8s.io",
-			},
-			Resources: []string{
 				"clusterrolebindings",
 				"clusterroles",
 			},
 			Verbs: []string{
-				"*",
-			},
-		},
-		{
-			APIGroups: []string{
-				"",
-			},
-			Resources: []string{
-				"pods",
-				"services",
-			},
-			Verbs: []string{
+				"create",
 				"get",
 				"list",
 				"watch",
 				"delete",
+				"update",
 			},
 		},
 		{
@@ -76,7 +54,12 @@ func getClusterPolicyRules() []rbacv1.PolicyRule {
 				"customresourcedefinitions/status",
 			},
 			Verbs: []string{
-				"*",
+				"create",
+				"get",
+				"list",
+				"watch",
+				"delete",
+				"update",
 			},
 		},
 		{
@@ -84,10 +67,14 @@ func getClusterPolicyRules() []rbacv1.PolicyRule {
 				"mtq.kubevirt.io",
 			},
 			Resources: []string{
-				"*",
+				"mtqs",
 			},
 			Verbs: []string{
-				"*",
+				"get",
+				"list",
+				"watch",
+				"delete",
+				"update",
 			},
 		},
 		{
@@ -137,7 +124,29 @@ func getNamespacedPolicyRules() []rbacv1.PolicyRule {
 				"services",
 			},
 			Verbs: []string{
-				"*",
+				"create",
+				"get",
+				"list",
+				"watch",
+				"delete",
+				"update",
+			},
+		},
+		{
+			APIGroups: []string{
+				"",
+			},
+			Resources: []string{
+				"pods",
+				"services",
+				"endpoints",
+			},
+			Verbs: []string{
+				"get",
+				"list",
+				"watch",
+				"create",
+				"update",
 			},
 		},
 		{
@@ -149,7 +158,12 @@ func getNamespacedPolicyRules() []rbacv1.PolicyRule {
 				"deployments/finalizers",
 			},
 			Verbs: []string{
-				"*",
+				"create",
+				"get",
+				"list",
+				"watch",
+				"delete",
+				"update",
 			},
 		},
 		{
@@ -178,7 +192,30 @@ func getNamespacedPolicyRules() []rbacv1.PolicyRule {
 				"leases",
 			},
 			Verbs: []string{
-				"*",
+				"get",
+				"list",
+				"watch",
+				"delete",
+				"update",
+				"create",
+				"patch",
+			},
+		},
+		{
+			APIGroups: []string{
+				"rbac.authorization.k8s.io",
+			},
+			Resources: []string{
+				"rolebindings",
+				"roles",
+			},
+			Verbs: []string{
+				"create",
+				"get",
+				"list",
+				"watch",
+				"delete",
+				"update",
 			},
 		},
 	}
