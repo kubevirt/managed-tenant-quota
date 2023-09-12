@@ -220,11 +220,11 @@ func (ctrl *VmmrqController) Execute() bool {
 func (ctrl *VmmrqController) execute(key string) (error, enqueueState) {
 	migrationObj, migrationExists, err := ctrl.migrationInformer.GetStore().GetByKey(key)
 	if err != nil {
-		return err, BackOff
+		return err, Forget
 	}
 	migartionNS, migrationName, err := parseKey(key)
 	if err != nil {
-		return err, BackOff
+		return err, Forget
 	}
 	ctrl.nsLockMap.Lock(migartionNS)
 	defer ctrl.nsLockMap.Unlock(migartionNS)
@@ -233,7 +233,7 @@ func (ctrl *VmmrqController) execute(key string) (error, enqueueState) {
 		return err, BackOff
 	}
 	if len(vmmrqObjsList.Items) != 1 {
-		return fmt.Errorf("there should be 1 virtualMachineMigrationResourceQuota in %v namespace", migartionNS), BackOff
+		return fmt.Errorf("there should be 1 virtualMachineMigrationResourceQuota in %v namespace", migartionNS), Forget
 	}
 
 	vmmrq := &vmmrqObjsList.Items[0]
