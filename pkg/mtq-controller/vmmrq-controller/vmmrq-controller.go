@@ -258,7 +258,7 @@ func (ctrl *VmmrqController) execute(key string) (error, enqueueState) {
 		vmiObj, vmiExists, err := ctrl.vmiInformer.GetStore().GetByKey(fmt.Sprintf("%s/%s", migartionNS, migration.Spec.VMIName))
 		if err != nil {
 			return err, BackOff
-		} else if !vmiExists { //vmi for migration doesn't exist
+		} else if !vmiExists { //vmi for migration doesn't exist.
 			return fmt.Errorf("VMI doesn't exist for migration"), BackOff
 		}
 		vmi = vmiObj.(*v1alpha1.VirtualMachineInstance)
