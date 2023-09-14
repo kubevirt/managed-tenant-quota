@@ -8,6 +8,7 @@ import (
 	"kubevirt.io/managed-tenant-quota/pkg/mtq-operator/resources/namespaced"
 	"kubevirt.io/managed-tenant-quota/tests/utils"
 	"reflect"
+	"runtime"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -108,17 +109,17 @@ var _ = Describe("ALL Operator tests", func() {
 						}
 					}
 					return nil
-				}, 5*time.Minute, 2*time.Second).Should(BeNil())
+				}, 5*time.Minute, 2*time.Second).ShouldNot(HaveOccurred())
 			})
 
 			It("should deploy components that tolerate CriticalAddonsOnly taint", func() {
-				cr := getMTQ(f)
+				mtq := getMTQ(f)
 				criticalAddonsToleration := corev1.Toleration{
 					Key:      "CriticalAddonsOnly",
 					Operator: corev1.TolerationOpExists,
 				}
 
-				if !tolerationExists(cr.Spec.Infra.Tolerations, criticalAddonsToleration) {
+				if !tolerationExists(mtq.Spec.Infra.Tolerations, criticalAddonsToleration) {
 					Skip("Unexpected MTQ CR (not from mtq-cr.yaml), doesn't tolerate CriticalAddonsOnly")
 				}
 
@@ -136,7 +137,7 @@ var _ = Describe("ALL Operator tests", func() {
 						nodeCopy.Spec.Taints = append(nodeCopy.Spec.Taints, criticalPodTaint)
 						_, err = f.K8sClient.CoreV1().Nodes().Update(context.TODO(), nodeCopy, metav1.UpdateOptions{})
 						return err
-					}, 5*time.Minute, 2*time.Second).Should(BeNil())
+					}, 5*time.Minute, 2*time.Second).ShouldNot(HaveOccurred())
 
 					Eventually(func() error {
 						nodeCopy, err := f.K8sClient.CoreV1().Nodes().Get(context.TODO(), node.Name, metav1.GetOptions{})
@@ -148,9 +149,9 @@ var _ = Describe("ALL Operator tests", func() {
 					}, 5*time.Minute, 2*time.Second).Should(BeNil())
 				}
 
-				By("Checking that all the non-testing pods are running")
+				By("Checking that all pods are running")
 				for _, mtqPods := range mtqPods.Items {
-					By(fmt.Sprintf("Non-test MTQ pod: %s", mtqPods.Name))
+					By(fmt.Sprintf("MTQ pod: %s", mtqPods.Name))
 					podUpdated, err := f.K8sClient.CoreV1().Pods(mtqPods.Namespace).Get(context.TODO(), mtqPods.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred(), "failed setting taint on node")
 					Expect(podUpdated.Status.Phase).To(Equal(corev1.PodRunning))
@@ -170,14 +171,14 @@ var _ = Describe("ALL Operator tests", func() {
 
 			AfterEach(func() {
 				removeMTQ(f, cr)
-				ensureMTQ(f, cr, mtqPods)
+				updateOrCreateMTQComponentsAndEnsureReady(f, cr, mtqPods)
 			})
 
 			It("should remove/install MTQ a number of times successfully", func() {
 				for i := 0; i < 3; i++ {
 					err := f.MtqClient.MtqV1alpha1().MTQs().Delete(context.TODO(), cr.Name, metav1.DeleteOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					ensureMTQ(f, cr, mtqPods)
+					updateOrCreateMTQComponentsAndEnsureReady(f, cr, mtqPods)
 				}
 			})
 
@@ -186,31 +187,9 @@ var _ = Describe("ALL Operator tests", func() {
 		var _ = Describe("mtq Operator deployment + mtq CR delete tests", func() {
 			var mtqBackup *mtqv1.MTQ
 			var mtqOperatorDeploymentBackup *appsv1.Deployment
+			nodeSelectorTestValue := map[string]string{"kubernetes.io/arch": runtime.GOARCH}
+			tolerationTestValue := []corev1.Toleration{{Key: "test", Value: "123"}, {Key: "CriticalAddonsOnly", Value: string(corev1.TolerationOpExists)}}
 			f := framework.NewFramework("operator-delete-mtq-test")
-
-			removeMTQCrAndOperator := func() {
-				removeMTQ(f, mtqBackup)
-
-				By("Deleting MTQ operator")
-				err := f.K8sClient.AppsV1().Deployments(f.MTQInstallNs).Delete(context.TODO(), "mtq-operator", metav1.DeleteOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Waiting for MTQ operator deployment to be deleted")
-				Eventually(func() bool { return mtqOperatorDeploymentGone(f) }, 5*time.Minute, 2*time.Second).Should(BeTrue())
-			}
-
-			ensureMTQ := func(cr *mtqv1.MTQ) {
-				By("Re-creating MTQ (CR and deployment)")
-				_, err := f.MtqClient.MtqV1alpha1().MTQs().Create(context.TODO(), cr, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Recreating MTQ operator")
-				_, err = f.K8sClient.AppsV1().Deployments(f.MTQInstallNs).Create(context.TODO(), mtqOperatorDeploymentBackup, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Verifying MTQ lock-server, controller exist, before continuing")
-				Eventually(func() bool { return infraDeploymentAvailable(f, mtqBackup) }, CompletionTimeout, assertionPollInterval).Should(BeTrue(), "Timeout reading MTQ deployments")
-			}
 
 			BeforeEach(func() {
 				currentCR := getMTQ(f)
@@ -233,18 +212,18 @@ var _ = Describe("ALL Operator tests", func() {
 					Spec: currentMTQOperatorDeployment.Spec,
 				}
 
-				removeMTQCrAndOperator()
+				removeMTQCrAndOperator(f, mtqBackup)
 			})
 
 			AfterEach(func() {
-				removeMTQCrAndOperator()
-				ensureMTQ(mtqBackup)
+				removeMTQCrAndOperator(f, mtqBackup)
+				deployMTQOperator(f, mtqBackup, mtqOperatorDeploymentBackup)
 			})
 
 			It("Should install MTQ infrastructure pods with node placement", func() {
 				By("Creating modified MTQ CR, with infra nodePlacement")
 				localSpec := mtqBackup.Spec.DeepCopy()
-				localSpec.Infra = f.TestNodePlacementValues()
+				localSpec.Infra = f.GetNodePlacementValuesWithRandomNodeAffinity(nodeSelectorTestValue, tolerationTestValue)
 
 				tempMtqCr := &mtqv1.MTQ{
 					ObjectMeta: metav1.ObjectMeta{
@@ -253,13 +232,13 @@ var _ = Describe("ALL Operator tests", func() {
 					Spec: *localSpec,
 				}
 
-				ensureMTQ(tempMtqCr)
+				deployMTQOperator(f, tempMtqCr, mtqOperatorDeploymentBackup)
 
 				By("Testing all infra deployments have the chosen node placement")
 				for _, deploymentName := range []string{"mtq-lock", "mtq-controller"} {
 					deployment, err := f.K8sClient.AppsV1().Deployments(f.MTQInstallNs).Get(context.TODO(), deploymentName, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					err = f.PodSpecHasTestNodePlacementValues(deployment.Spec.Template.Spec)
+					err = f.PodSpecHasTestNodePlacementValues(deployment.Spec.Template.Spec, localSpec.Infra)
 					Expect(err).ToNot(HaveOccurred())
 				}
 			})
@@ -274,12 +253,14 @@ var _ = Describe("ALL Operator tests", func() {
 				originalReplicaVal := scaleDeployment(f, deploymentName, 10)
 
 				By("Ensuring original value of replicas restored & extra deployment pod was cleaned up")
-				Eventually(func() bool {
+				Eventually(func() error {
 					depl, err := f.K8sClient.AppsV1().Deployments(f.MTQInstallNs).Get(context.TODO(), deploymentName, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					_, err = utils.FindPodByPrefix(f.K8sClient, f.MTQInstallNs, deploymentName, MTQControllerLabelSelector)
-					return *depl.Spec.Replicas == originalReplicaVal && err == nil
-				}, 5*time.Minute, 1*time.Second).Should(BeTrue())
+					if *depl.Spec.Replicas != originalReplicaVal {
+						return fmt.Errorf("original replicas value in deployment should be restore by mtq-operator")
+					}
+					return nil
+				}, 5*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 			})
 
 			It("Service spec.selector restored on overwrite attempt", func() {
@@ -292,12 +273,14 @@ var _ = Describe("ALL Operator tests", func() {
 				_, err = f.K8sClient.CoreV1().Services(f.MTQInstallNs).Update(context.TODO(), service, metav1.UpdateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				Eventually(func() bool {
+				Eventually(func() error {
 					svc, err := f.K8sClient.CoreV1().Services(f.MTQInstallNs).Get(context.TODO(), "mtq-lock", metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					By(fmt.Sprintf("Waiting until original spec.selector value: %s\n Matches current: %s\n", originalSelectorVal, svc.Spec.Selector[resourcesutils.MTQLabel]))
-					return svc.Spec.Selector[resourcesutils.MTQLabel] == originalSelectorVal
-				}, 2*time.Minute, 1*time.Second).Should(BeTrue())
+					if svc.Spec.Selector[resourcesutils.MTQLabel] != originalSelectorVal {
+						return fmt.Errorf("original spec.selector value: %s\n should Matches current: %s\n", originalSelectorVal, svc.Spec.Selector[resourcesutils.MTQLabel])
+					}
+					return nil
+				}, 2*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 			})
 
 			It("ServiceAccount values restored on update attempt", func() {
@@ -310,12 +293,15 @@ var _ = Describe("ALL Operator tests", func() {
 				_, err = f.K8sClient.CoreV1().ServiceAccounts(f.MTQInstallNs).Update(context.TODO(), serviceAccount, metav1.UpdateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				Eventually(func() bool {
+				By("Waiting until label value restored")
+				Eventually(func() error {
 					sa, err := f.K8sClient.CoreV1().ServiceAccounts(f.MTQInstallNs).Get(context.TODO(), resourcesutils.ControllerServiceAccountName, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					By("Waiting until label value restored")
-					return sa.Labels[resourcesutils.MTQLabel] == ""
-				}, 2*time.Minute, 1*time.Second).Should(BeTrue())
+					if sa.Labels[resourcesutils.MTQLabel] != "" {
+						return fmt.Errorf("mtq label should be restores if modifed")
+					}
+					return nil
+				}, 2*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 			})
 
 			It("Certificate restored to ConfigMap on deletion attempt", func() {
@@ -328,47 +314,39 @@ var _ = Describe("ALL Operator tests", func() {
 				_, err = f.K8sClient.CoreV1().ConfigMaps(f.MTQInstallNs).Update(context.TODO(), configMap, metav1.UpdateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				Eventually(func() bool {
+				By("Waiting until ConfigMap's data is not empty")
+				Eventually(func() error {
 					cm, err := f.K8sClient.CoreV1().ConfigMaps(f.MTQInstallNs).Get(context.TODO(), "mtq-lock-signer-bundle", metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					By("Waiting until ConfigMap's data is not empty")
-					return len(cm.Data) != 0
-				}, 2*time.Minute, 1*time.Second).Should(BeTrue())
+					if len(cm.Data) == 0 {
+						return fmt.Errorf("mtq-lock-signer-bundle data should be filled by mtq-operator if modified")
+					}
+					return nil
+				}, 2*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 			})
-
 		})
 
 		var _ = Describe("Operator cert config tests", func() {
-			var mtq *mtqv1.MTQ
+			var mtqBackup *mtqv1.MTQ
 			f := framework.NewFramework("operator-cert-config-test")
 
 			BeforeEach(func() {
-				mtq = getMTQ(f)
+				mtqBackup = getMTQ(f)
 			})
 
 			AfterEach(func() {
-				if mtq == nil {
+				if mtqBackup == nil {
 					return
 				}
 
-				cr, err := f.MtqClient.MtqV1alpha1().MTQs().Get(context.TODO(), mtq.Name, metav1.GetOptions{})
+				cr, err := f.MtqClient.MtqV1alpha1().MTQs().Get(context.TODO(), mtqBackup.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				cr.Spec.CertConfig = mtq.Spec.CertConfig
+				cr.Spec.CertConfig = mtqBackup.Spec.CertConfig
 
 				_, err = f.MtqClient.MtqV1alpha1().MTQs().Update(context.TODO(), cr, metav1.UpdateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 			})
-
-			getSecrets := func(secrets []string) []corev1.Secret {
-				var result []corev1.Secret
-				for _, s := range secrets {
-					s, err := f.K8sClient.CoreV1().Secrets(f.MTQInstallNs).Get(context.TODO(), s, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					result = append(result, *s)
-				}
-				return result
-			}
 
 			validateCertConfig := func(obj metav1.Object, lifetime, refresh string) {
 				cca, ok := obj.GetAnnotations()["operator.mtq.kubevirt.io/certConfig"]
@@ -385,20 +363,20 @@ var _ = Describe("ALL Operator tests", func() {
 			}
 
 			It("should allow update", func() {
-				caSecretNames := []string{"mtq-lock"}
-				serverSecretNames := []string{namespaced.SecretResourceName}
-				origNotBeforeTime := map[string]time.Time{}
+				origNotAfterTime := map[string]time.Time{}
+				caSecret, err := f.K8sClient.CoreV1().Secrets(f.MTQInstallNs).Get(context.TODO(), "mtq-lock", metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				serverSecret, err := f.K8sClient.CoreV1().Secrets(f.MTQInstallNs).Get(context.TODO(), namespaced.SecretResourceName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
 
-				caSecrets := getSecrets(caSecretNames)
-				serverSecrets := getSecrets(serverSecretNames)
-				for _, s := range append(caSecrets, serverSecrets...) {
-					nba := s.Annotations["auth.openshift.io/certificate-not-before"]
-					t, err := time.Parse(time.RFC3339, nba)
+				for _, s := range []*corev1.Secret{caSecret, serverSecret} {
+					notAfterAnn := s.Annotations["auth.openshift.io/certificate-not-after"]
+					notAfterTIme, err := time.Parse(time.RFC3339, notAfterAnn)
 					Expect(err).ToNot(HaveOccurred())
-					origNotBeforeTime[s.Name] = t
+					origNotAfterTime[s.Name] = notAfterTIme
 				}
 
-				Eventually(func() bool {
+				Eventually(func() error {
 					cr := getMTQ(f)
 					cr.Spec.CertConfig = &mtqv1.MTQCertConfig{
 						CA: &mtqv1.CertConfig{
@@ -411,62 +389,66 @@ var _ = Describe("ALL Operator tests", func() {
 						},
 					}
 					newCR, err := f.MtqClient.MtqV1alpha1().MTQs().Update(context.TODO(), cr, metav1.UpdateOptions{})
-					if errors.IsConflict(err) {
-						return false
+					if err != nil {
+						return err
 					}
-					Expect(err).ToNot(HaveOccurred())
 					Expect(newCR.Spec.CertConfig).To(Equal(cr.Spec.CertConfig))
 					By("Cert config update complete")
-					return true
-				}, 2*time.Minute, 1*time.Second).Should(BeTrue())
+					return nil
+				}, 2*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 
+				By("Verify secrets have been modified")
 				Eventually(func() error {
-					caSecrets := getSecrets(caSecretNames)
-					serverSecrets := getSecrets(serverSecretNames)
-
-					for _, s := range append(caSecrets, serverSecrets...) {
-						nba := s.Annotations["auth.openshift.io/certificate-not-before"]
-						t, err := time.Parse(time.RFC3339, nba)
+					for _, secret := range []*corev1.Secret{caSecret, serverSecret} {
+						currSecret, err := f.K8sClient.CoreV1().Secrets(f.MTQInstallNs).Get(context.TODO(), secret.Name, metav1.GetOptions{})
 						Expect(err).ToNot(HaveOccurred())
-						if !t.Equal(origNotBeforeTime[s.Name]) {
-							break
+						notAfterAnn := currSecret.Annotations["auth.openshift.io/certificate-not-after"]
+						notAfterTime, err := time.Parse(time.RFC3339, notAfterAnn)
+						Expect(err).ToNot(HaveOccurred())
+						if notAfterTime.Equal(origNotAfterTime[currSecret.Name]) {
+							return fmt.Errorf("not-before-time annotation should change")
 						}
 					}
+					return nil
+				}, 2*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 
-					for _, s := range caSecrets {
-						nba := s.Annotations["auth.openshift.io/certificate-not-before"]
-						t, err := time.Parse(time.RFC3339, nba)
-						Expect(err).ToNot(HaveOccurred())
-						naa := s.Annotations["auth.openshift.io/certificate-not-after"]
-						t2, err := time.Parse(time.RFC3339, naa)
-						Expect(err).ToNot(HaveOccurred())
-						if t2.Sub(t) < time.Minute*20 {
-							return fmt.Errorf("Not-Before (%s) should be 20 minutes before Not-After (%s)\n", nba, naa)
-						}
-						if t2.Sub(t)-(time.Minute*20) > time.Second {
-							return fmt.Errorf("Not-Before (%s) should be 20 minutes before Not-After (%s) with 1 second toleration\n", nba, naa)
-						}
-						// 20m - 5m = 15m
-						validateCertConfig(&s, "20m0s", "15m0s")
+				By("Verify secrets have the right values")
+				Eventually(func() error {
+					caSecret, err := f.K8sClient.CoreV1().Secrets(f.MTQInstallNs).Get(context.TODO(), "mtq-lock", metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					serverSecret, err := f.K8sClient.CoreV1().Secrets(f.MTQInstallNs).Get(context.TODO(), namespaced.SecretResourceName, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					currCaSecretNotBeforeAnn := caSecret.Annotations["auth.openshift.io/certificate-not-before"]
+					caNotBeforeTime, err := time.Parse(time.RFC3339, currCaSecretNotBeforeAnn)
+					Expect(err).ToNot(HaveOccurred())
+					currCaSecretNotAnn := caSecret.Annotations["auth.openshift.io/certificate-not-after"]
+					caNotAfterTime, err := time.Parse(time.RFC3339, currCaSecretNotAnn)
+					Expect(err).ToNot(HaveOccurred())
+					if caNotAfterTime.Sub(caNotBeforeTime) < time.Minute*20 {
+						return fmt.Errorf("Not-Before (%s) should be 20 minutes before Not-After (%s)\n", currCaSecretNotBeforeAnn, currCaSecretNotAnn)
 					}
-
-					for _, s := range serverSecrets {
-						nba := s.Annotations["auth.openshift.io/certificate-not-before"]
-						t, err := time.Parse(time.RFC3339, nba)
-						Expect(err).ToNot(HaveOccurred())
-						naa := s.Annotations["auth.openshift.io/certificate-not-after"]
-						t2, err := time.Parse(time.RFC3339, naa)
-						Expect(err).ToNot(HaveOccurred())
-						if t2.Sub(t) < time.Minute*5 {
-							return fmt.Errorf("Not-Before (%s) should be 5 minutes before Not-After (%s)\n", nba, naa)
-						}
-						if t2.Sub(t)-(time.Minute*5) > time.Second {
-							return fmt.Errorf("Not-Before (%s) should be 5 minutes before Not-After (%s) with 1 second toleration\n", nba, naa)
-						}
-						// 5m - 2m = 3m
-						validateCertConfig(&s, "5m0s", "3m0s")
+					if caNotAfterTime.Sub(caNotBeforeTime)-(time.Minute*20) > time.Second {
+						return fmt.Errorf("Not-Before (%s) should be 20 minutes before Not-After (%s) with 1 second toleration\n", currCaSecretNotBeforeAnn, currCaSecretNotAnn)
 					}
+					// 20m - 5m = 15m
+					validateCertConfig(caSecret, "20m0s", "15m0s")
 
+					currServerSecretNotBeforeAnn := serverSecret.Annotations["auth.openshift.io/certificate-not-before"]
+					serverNotBeforeTime, err := time.Parse(time.RFC3339, currServerSecretNotBeforeAnn)
+					Expect(err).ToNot(HaveOccurred())
+					currServerNotAfterAnn := serverSecret.Annotations["auth.openshift.io/certificate-not-after"]
+					serverNotAfterTime, err := time.Parse(time.RFC3339, currServerNotAfterAnn)
+					Expect(err).ToNot(HaveOccurred())
+					if serverNotAfterTime.Sub(serverNotBeforeTime) < time.Minute*5 {
+						return fmt.Errorf("Not-Before (%s) should be 5 minutes before Not-After (%s)\n", currServerSecretNotBeforeAnn, currServerNotAfterAnn)
+					}
+					if serverNotAfterTime.Sub(serverNotBeforeTime)-(time.Minute*5) > time.Second {
+						return fmt.Errorf("Not-Before (%s) should be 5 minutes before Not-After (%s) with 1 second toleration\n", currServerSecretNotBeforeAnn, currServerNotAfterAnn)
+					}
+					// 5m - 2m = 3m
+					validateCertConfig(serverSecret, "5m0s", "3m0s")
 					return nil
 				}, 2*time.Minute, 1*time.Second).Should(BeNil())
 			})
@@ -485,20 +467,31 @@ var _ = Describe("ALL Operator tests", func() {
 			)
 			f := framework.NewFramework("operator-priority-class-test")
 			verifyPodPriorityClass := func(prefix, priorityClassName, labelSelector string) {
-				Eventually(func() string {
+				Eventually(func() error {
 					controllerPod, err := utils.FindPodByPrefix(f.K8sClient, f.MTQInstallNs, prefix, labelSelector)
 					if err != nil {
-						return ""
+						return err
 					}
-					return controllerPod.Spec.PriorityClassName
-				}, 2*time.Minute, 1*time.Second).Should(BeEquivalentTo(priorityClassName))
+					if controllerPod.Spec.PriorityClassName != priorityClassName {
+						return fmt.Errorf("controllerPod.Spec.PriorityClassName: %v is not equal to PriorityClassName:%v", controllerPod.Spec.PriorityClassName, priorityClassName)
+					}
+					return nil
+				}, 30*time.Second, 1*time.Second).Should(BeNil())
 			}
 
 			BeforeEach(func() {
+				list, err := f.VirtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
+				if err != nil {
+					return
+				}
+				if len(list.Items) < 3 {
+					Skip("This test require at least 3 nodes")
+				}
 				mtq = getMTQ(f)
 				if mtq.Spec.PriorityClass != nil {
 					By(fmt.Sprintf("Current priority class is: [%s]", *mtq.Spec.PriorityClass))
 				}
+
 			})
 
 			AfterEach(func() {
@@ -508,9 +501,12 @@ var _ = Describe("ALL Operator tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				if !utils.IsOpenshift(f.K8sClient) {
-					Eventually(func() bool {
-						return errors.IsNotFound(f.K8sClient.SchedulingV1().PriorityClasses().Delete(context.TODO(), osUserCrit.Name, metav1.DeleteOptions{}))
-					}, 2*time.Minute, 1*time.Second).Should(BeTrue())
+					Eventually(func() error {
+						if !errors.IsNotFound(f.K8sClient.SchedulingV1().PriorityClasses().Delete(context.TODO(), osUserCrit.Name, metav1.DeleteOptions{})) {
+							return fmt.Errorf("Priority class " + osUserCrit.Name + " should not exsist ")
+						}
+						return nil
+					}, 2*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 				}
 				By("Ensuring the MTQ priority class is restored")
 				prioClass := ""
@@ -572,91 +568,143 @@ func getMTQPods(f *framework.Framework) *corev1.PodList {
 	mtqPods, err := f.K8sClient.CoreV1().Pods(f.MTQInstallNs).List(context.TODO(), metav1.ListOptions{
 		LabelSelector: labels.Set(labelSelector.MatchLabels).String(),
 	})
-	Expect(err).ToNot(HaveOccurred(), "failed listing mtq pods")
-	Expect(mtqPods.Items).ToNot(BeEmpty(), "no mtq pods found")
+	ExpectWithOffset(1, err).ToNot(HaveOccurred(), "failed listing mtq pods")
+	ExpectWithOffset(1, mtqPods.Items).ToNot(BeEmpty(), "no mtq pods found")
 	return mtqPods
 }
 
 func getMTQ(f *framework.Framework) *mtqv1.MTQ {
 	By("Getting MTQ resource")
 	mtqs, err := f.MtqClient.MtqV1alpha1().MTQs().List(context.TODO(), metav1.ListOptions{})
-	Expect(err).ToNot(HaveOccurred())
-	Expect(mtqs.Items).To(HaveLen(1))
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	ExpectWithOffset(1, mtqs.Items).To(HaveLen(1))
 	return &mtqs.Items[0]
 }
+func removeMTQCrAndOperator(f *framework.Framework, mtq *mtqv1.MTQ) {
+	removeMTQ(f, mtq)
+	By("Deleting MTQ operator")
+	err := f.K8sClient.AppsV1().Deployments(f.MTQInstallNs).Delete(context.TODO(), "mtq-operator", metav1.DeleteOptions{})
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
+	By("Waiting for MTQ operator deployment to be deleted")
+	EventuallyWithOffset(1, func() error {
+		if mtqOperatorDeploymentGone(f) == false {
+			return fmt.Errorf("operator deployment should be deleted")
+		}
+		return nil
+	}, 5*time.Minute, 2*time.Second).ShouldNot(HaveOccurred())
+}
 func removeMTQ(f *framework.Framework, cr *mtqv1.MTQ) {
 	By("Deleting MTQ CR if exists")
 	_ = f.MtqClient.MtqV1alpha1().MTQs().Delete(context.TODO(), cr.Name, metav1.DeleteOptions{})
 
 	By("Waiting for MTQ CR and infra deployments to be gone now that we are sure there's no MTQ CR")
-	Eventually(func() bool { return infraDeploymentGone(f) && crGone(f, cr) }, 15*time.Minute, 2*time.Second).Should(BeTrue())
-}
 
-func ensureMTQ(f *framework.Framework, cr *mtqv1.MTQ, mtqPods *corev1.PodList) {
+	EventuallyWithOffset(1, func() error {
+		for _, deploymentName := range []string{"mtq-lock", "mtq-controller"} {
+			_, err := f.K8sClient.AppsV1().Deployments(f.MTQInstallNs).Get(context.TODO(), deploymentName, metav1.GetOptions{})
+			if !errors.IsNotFound(err) {
+				return fmt.Errorf(deploymentName + " should be deleted")
+			}
+		}
+		_, err := f.MtqClient.MtqV1alpha1().MTQs().Get(context.TODO(), cr.Name, metav1.GetOptions{})
+		if !errors.IsNotFound(err) {
+			return fmt.Errorf("mtq should be deleted")
+		}
+		return nil
+	}, 5*time.Minute, 2*time.Second).ShouldNot(HaveOccurred())
+}
+func deployMTQOperator(f *framework.Framework, mtq *mtqv1.MTQ, mtqOperatorDeployment *appsv1.Deployment) {
+	By("Re-creating MTQ (CR and deployment)")
+	_, err := f.MtqClient.MtqV1alpha1().MTQs().Create(context.TODO(), mtq, metav1.CreateOptions{})
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+
+	By("Recreating MTQ operator")
+	_, err = f.K8sClient.AppsV1().Deployments(f.MTQInstallNs).Create(context.TODO(), mtqOperatorDeployment, metav1.CreateOptions{})
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+
+	By("Verifying MTQ lock-server, controller exist, before continuing")
+	EventuallyWithOffset(1, func() error {
+		if !infraDeploymentAvailable(f, mtq) {
+			return fmt.Errorf("mtq operator should be available")
+		}
+		return nil
+	}, CompletionTimeout, assertionPollInterval).ShouldNot(HaveOccurred())
+}
+func updateOrCreateMTQComponentsAndEnsureReady(f *framework.Framework, updatedMtq *mtqv1.MTQ, mtqPods *corev1.PodList) {
 	By("Check if MTQ CR exists")
-	mtq, err := f.MtqClient.MtqV1alpha1().MTQs().Get(context.TODO(), cr.Name, metav1.GetOptions{})
+	mtq, err := f.MtqClient.MtqV1alpha1().MTQs().Get(context.TODO(), updatedMtq.Name, metav1.GetOptions{})
 	if err == nil {
 		if mtq.DeletionTimestamp == nil {
 			By("MTQ CR exists")
-			mtq.Spec = cr.Spec
+			mtq.Spec = updatedMtq.Spec
 			_, err = f.MtqClient.MtqV1alpha1().MTQs().Update(context.TODO(), mtq, metav1.UpdateOptions{})
-			Expect(err).ToNot(HaveOccurred())
+			ExpectWithOffset(1, err).ToNot(HaveOccurred())
 			return
 		}
 
 		By("Waiting for MTQ CR deletion")
-		Eventually(func() bool {
-			_, err = f.MtqClient.MtqV1alpha1().MTQs().Get(context.TODO(), cr.Name, metav1.GetOptions{})
+		EventuallyWithOffset(1, func() error {
+			_, err = f.MtqClient.MtqV1alpha1().MTQs().Get(context.TODO(), updatedMtq.Name, metav1.GetOptions{})
 			if errors.IsNotFound(err) {
-				return true
+				return nil
 			}
-			Expect(err).ToNot(HaveOccurred())
-			return false
-		}, 5*time.Minute, 2*time.Second).Should(BeTrue())
+			ExpectWithOffset(1, err).ToNot(HaveOccurred())
+			return fmt.Errorf("MTQ with deletion timestemp is not being deleted")
+		}, 5*time.Minute, 2*time.Second).ShouldNot(HaveOccurred())
 	} else {
-		Expect(errors.IsNotFound(err)).To(BeTrue())
+		ExpectWithOffset(1, errors.IsNotFound(err)).To(BeTrue())
 	}
 
 	mtq = &mtqv1.MTQ{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: cr.Name,
+			Name: updatedMtq.Name,
 		},
-		Spec: cr.Spec,
+		Spec: updatedMtq.Spec,
 	}
 
 	By("Create MTQ CR")
 	_, err = f.MtqClient.MtqV1alpha1().MTQs().Create(context.TODO(), mtq, metav1.CreateOptions{})
-	Expect(err).ToNot(HaveOccurred())
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
-	waitMTQ(f, cr, mtqPods)
+	waitForMTQToBeReady(f, updatedMtq, mtqPods)
 }
 
-func waitMTQ(f *framework.Framework, cr *mtqv1.MTQ, mtqPods *corev1.PodList) {
+func waitForMTQToBeReady(f *framework.Framework, cr *mtqv1.MTQ, mtqPods *corev1.PodList) {
 	var newMtqPods *corev1.PodList
 
-	By("Waiting for MTQ CR")
-	Eventually(func() bool {
+	By("Waiting for MTQ CR to be Available")
+	EventuallyWithOffset(2, func() error {
 		mtq, err := f.MtqClient.MtqV1alpha1().MTQs().Get(context.TODO(), cr.Name, metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		Expect(mtq.Status.Phase).ShouldNot(Equal(sdkapi.PhaseError))
-		return conditions.IsStatusConditionTrue(mtq.Status.Conditions, conditions.ConditionAvailable)
-	}, 10*time.Minute, 2*time.Second).Should(BeTrue())
+		ExpectWithOffset(2, err).ToNot(HaveOccurred())
+		ExpectWithOffset(2, mtq.Status.Phase).ShouldNot(Equal(sdkapi.PhaseError))
+		if !conditions.IsStatusConditionTrue(mtq.Status.Conditions, conditions.ConditionAvailable) {
+			return fmt.Errorf("MTQ CR should be Available")
+		}
+		return nil
+	}, 10*time.Minute, 2*time.Second).ShouldNot(HaveOccurred())
 
 	By("Verifying MTQ lock-server and controller exist, before continuing")
-	Eventually(func() bool { return infraDeploymentAvailable(f, cr) }, CompletionTimeout, assertionPollInterval).Should(BeTrue(), "Timeout reading MTQ deployments")
+	EventuallyWithOffset(2, func() error {
+		if !infraDeploymentAvailable(f, cr) {
+			return fmt.Errorf("MTQ deploymets should be Available")
+		}
+		return nil
+	}, CompletionTimeout, assertionPollInterval).ShouldNot(HaveOccurred(), "Timeout reading MTQ deployments")
 
 	By("Waiting for there to be as many MTQ pods as before")
-	Eventually(func() bool {
+	EventuallyWithOffset(2, func() error {
 		newMtqPods = getMTQPods(f)
-		By(fmt.Sprintf("number of mtq pods: %d\n new number of mtq pods: %d\n", len(mtqPods.Items), len(newMtqPods.Items)))
-		return len(mtqPods.Items) == len(newMtqPods.Items)
-	}, 5*time.Minute, 2*time.Second).Should(BeTrue())
+		if len(mtqPods.Items) != len(newMtqPods.Items) {
+			return fmt.Errorf("number of mtq pods: %d\n should be equal to new number of mtq pods: %d\n", len(mtqPods.Items), len(newMtqPods.Items))
+		}
+		return nil
+	}, 5*time.Minute, 2*time.Second).ShouldNot(HaveOccurred())
 
 	for _, newMtqPod := range newMtqPods.Items {
 		By(fmt.Sprintf("Waiting for MTQ pod %s to be ready", newMtqPod.Name))
 		err := utils.WaitTimeoutForPodReady(f.K8sClient, newMtqPod.Name, newMtqPod.Namespace, 20*time.Minute)
-		Expect(err).ToNot(HaveOccurred())
+		ExpectWithOffset(2, err).ToNot(HaveOccurred())
 	}
 }
 
@@ -694,36 +742,21 @@ func infraDeploymentAvailable(f *framework.Framework, cr *mtqv1.MTQ) bool {
 	return true
 }
 
-func infraDeploymentGone(f *framework.Framework) bool {
-	for _, deploymentName := range []string{"mtq-lock", "mtq-controller"} {
-		_, err := f.K8sClient.AppsV1().Deployments(f.MTQInstallNs).Get(context.TODO(), deploymentName, metav1.GetOptions{})
-		if !errors.IsNotFound(err) {
-			return false
-		}
-	}
-	return true
-}
-
-func crGone(f *framework.Framework, cr *mtqv1.MTQ) bool {
-	_, err := f.MtqClient.MtqV1alpha1().MTQs().Get(context.TODO(), cr.Name, metav1.GetOptions{})
-	return errors.IsNotFound(err)
-}
-
 func mtqOperatorDeploymentGone(f *framework.Framework) bool {
 	_, err := f.K8sClient.AppsV1().Deployments(f.MTQInstallNs).Get(context.TODO(), "mtq-operator", metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		return true
 	}
-	Expect(err).ToNot(HaveOccurred())
+	ExpectWithOffset(2, err).ToNot(HaveOccurred())
 	return false
 }
 
 func scaleDeployment(f *framework.Framework, deploymentName string, replicas int32) int32 {
 	operatorDeployment, err := f.K8sClient.AppsV1().Deployments(f.MTQInstallNs).Get(context.TODO(), deploymentName, metav1.GetOptions{})
-	Expect(err).ToNot(HaveOccurred())
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	originalReplicas := *operatorDeployment.Spec.Replicas
 	patch := fmt.Sprintf(`[{"op": "replace", "path": "/spec/replicas", "value": %d}]`, replicas)
 	_, err = f.K8sClient.AppsV1().Deployments(f.MTQInstallNs).Patch(context.TODO(), deploymentName, types.JSONPatchType, []byte(patch), metav1.PatchOptions{})
-	Expect(err).ToNot(HaveOccurred())
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	return originalReplicas
 }

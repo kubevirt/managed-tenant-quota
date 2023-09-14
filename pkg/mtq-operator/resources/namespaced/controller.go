@@ -104,6 +104,13 @@ func createMTQControllerDeployment(image, verbosity, pullPolicy string, imagePul
 	if priorityClassName != "" {
 		deployment.Spec.Template.Spec.PriorityClassName = priorityClassName
 	}
+	desiredMaxUnavailable := intstr.FromInt(1)
+	deployment.Spec.Strategy = appsv1.DeploymentStrategy{
+		Type: appsv1.RollingUpdateDeploymentStrategyType,
+		RollingUpdate: &appsv1.RollingUpdateDeployment{
+			MaxUnavailable: &desiredMaxUnavailable,
+		},
+	}
 	container := utils2.CreateContainer(controllerResourceName, image, verbosity, pullPolicy)
 	container.Ports = createMTQControllerPorts()
 	container.Env = []corev1.EnvVar{
