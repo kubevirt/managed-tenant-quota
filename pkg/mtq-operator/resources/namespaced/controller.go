@@ -2,13 +2,13 @@ package namespaced
 
 import (
 	"fmt"
-	rbacv1 "k8s.io/api/rbac/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
-	utils2 "kubevirt.io/managed-tenant-quota/pkg/mtq-operator/resources/utils"
-
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
+	utils2 "kubevirt.io/managed-tenant-quota/pkg/mtq-operator/resources/utils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/api"
@@ -100,7 +100,7 @@ func createMTQControllerServiceAccount() *corev1.ServiceAccount {
 
 func createMTQControllerDeployment(image, verbosity, pullPolicy string, imagePullSecrets []corev1.LocalObjectReference, priorityClassName string, infraNodePlacement *sdkapi.NodePlacement) *appsv1.Deployment {
 	defaultMode := corev1.ConfigMapVolumeSourceDefaultMode
-	deployment := utils2.CreateDeployment(controllerResourceName, utils2.MTQLabel, controllerResourceName, controllerResourceName, imagePullSecrets, 1, infraNodePlacement)
+	deployment := utils2.CreateDeployment(controllerResourceName, utils2.MTQLabel, controllerResourceName, controllerResourceName, imagePullSecrets, 2, infraNodePlacement)
 	if priorityClassName != "" {
 		deployment.Spec.Template.Spec.PriorityClassName = priorityClassName
 	}
@@ -164,6 +164,18 @@ func createMTQControllerDeployment(image, verbosity, pullPolicy string, imagePul
 						},
 					},
 					DefaultMode: &defaultMode,
+				},
+			},
+		},
+	}
+	deployment.Spec.Template.Spec.Affinity = &corev1.Affinity{
+		PodAntiAffinity: &corev1.PodAntiAffinity{
+			RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
+				{
+					LabelSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{utils2.MTQLabel: controllerResourceName},
+					},
+					TopologyKey: "kubernetes.io/hostname",
 				},
 			},
 		},
