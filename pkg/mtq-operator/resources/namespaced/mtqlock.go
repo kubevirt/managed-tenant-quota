@@ -55,6 +55,13 @@ func createMTQLockDeployment(image, pullPolicy string, imagePullSecrets []corev1
 	if priorityClassName != "" {
 		deployment.Spec.Template.Spec.PriorityClassName = priorityClassName
 	}
+	desiredMaxUnavailable := intstr.FromInt(1)
+	deployment.Spec.Strategy = appsv1.DeploymentStrategy{
+		Type: appsv1.RollingUpdateDeploymentStrategyType,
+		RollingUpdate: &appsv1.RollingUpdateDeployment{
+			MaxUnavailable: &desiredMaxUnavailable,
+		},
+	}
 	container := utils2.CreateContainer(mtqLockResourceName, image, verbosity, pullPolicy)
 	container.Ports = createMTQLockPorts()
 

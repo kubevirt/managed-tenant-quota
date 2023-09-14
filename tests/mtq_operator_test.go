@@ -467,20 +467,31 @@ var _ = Describe("ALL Operator tests", func() {
 			)
 			f := framework.NewFramework("operator-priority-class-test")
 			verifyPodPriorityClass := func(prefix, priorityClassName, labelSelector string) {
-				Eventually(func() string {
+				Eventually(func() error {
 					controllerPod, err := utils.FindPodByPrefix(f.K8sClient, f.MTQInstallNs, prefix, labelSelector)
 					if err != nil {
-						return ""
+						return err
 					}
-					return controllerPod.Spec.PriorityClassName
-				}, 2*time.Minute, 1*time.Second).Should(BeEquivalentTo(priorityClassName))
+					if controllerPod.Spec.PriorityClassName != priorityClassName {
+						return fmt.Errorf("controllerPod.Spec.PriorityClassName: %v is not equal to PriorityClassName:%v", controllerPod.Spec.PriorityClassName, priorityClassName)
+					}
+					return nil
+				}, 30*time.Second, 1*time.Second).Should(BeNil())
 			}
 
 			BeforeEach(func() {
+				list, err := f.VirtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
+				if err != nil {
+					return
+				}
+				if len(list.Items) < 3 {
+					Skip("This test require at least 3 nodes")
+				}
 				mtq = getMTQ(f)
 				if mtq.Spec.PriorityClass != nil {
 					By(fmt.Sprintf("Current priority class is: [%s]", *mtq.Spec.PriorityClass))
 				}
+
 			})
 
 			AfterEach(func() {
