@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"runtime"
 
 	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/api"
 
@@ -12,15 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var (
-	nodeSelectorTestValue = map[string]string{"kubernetes.io/arch": runtime.GOARCH}
-	tolerationsTestValue  = []v1.Toleration{{Key: "test", Value: "123"}, {Key: "CriticalAddonsOnly", Value: string(v1.TolerationOpExists)}}
-	affinityTestValue     = &v1.Affinity{}
-)
-
-// TestNodePlacementValues returns a pre-defined set of node placement values for testing purposes.
-// The values chosen are valid, but the pod will likely not be schedulable.
-func (f *Framework) TestNodePlacementValues() sdkapi.NodePlacement {
+func (f *Framework) GetNodePlacementValuesWithRandomNodeAffinity(nodeSelectorTestValue map[string]string, tolerationTestValue []v1.Toleration) sdkapi.NodePlacement {
 	nodes, _ := f.K8sClient.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
 
 	nodeName := nodes.Items[0].Name
@@ -31,7 +22,7 @@ func (f *Framework) TestNodePlacementValues() sdkapi.NodePlacement {
 		}
 	}
 
-	affinityTestValue = &v1.Affinity{
+	affinityTestValue := &v1.Affinity{
 		NodeAffinity: &v1.NodeAffinity{
 			RequiredDuringSchedulingIgnoredDuringExecution: &v1.NodeSelector{
 				NodeSelectorTerms: []v1.NodeSelectorTerm{
@@ -46,26 +37,30 @@ func (f *Framework) TestNodePlacementValues() sdkapi.NodePlacement {
 	}
 
 	return sdkapi.NodePlacement{
-		NodeSelector: nodeSelectorTestValue, //here
-		Affinity:     affinityTestValue,     //here
-		Tolerations:  tolerationsTestValue,
+		NodeSelector: nodeSelectorTestValue,
+		Affinity:     affinityTestValue,
+		Tolerations:  tolerationTestValue,
 	}
 }
 
 // PodSpecHasTestNodePlacementValues compares if the pod spec has the set of node placement values defined for testing purposes
-func (f *Framework) PodSpecHasTestNodePlacementValues(podSpec v1.PodSpec) error {
+func (f *Framework) PodSpecHasTestNodePlacementValues(podSpec v1.PodSpec, nodePlacement sdkapi.NodePlacement) error {
+
 	errfmt := "mismatched nodeSelectors, podSpec:\n%v\nExpected:\n%v\n"
-	if !reflect.DeepEqual(podSpec.NodeSelector, nodeSelectorTestValue) || !reflect.DeepEqual(podSpec.Affinity, affinityTestValue) {
-		return fmt.Errorf(errfmt, podSpec.NodeSelector, nodeSelectorTestValue)
+	if !reflect.DeepEqual(podSpec.NodeSelector, nodePlacement.NodeSelector) {
+		return fmt.Errorf(errfmt, podSpec.NodeSelector, nodePlacement.NodeSelector)
 	}
-	foundMatchingToleration := false
-	for _, toleration := range podSpec.Tolerations {
-		if toleration == tolerationsTestValue[0] {
-			foundMatchingToleration = true
+
+	for _, nodePlacementToleration := range nodePlacement.Tolerations {
+		foundMatchingToleration := false
+		for _, toleration := range podSpec.Tolerations {
+			if toleration == nodePlacementToleration {
+				foundMatchingToleration = true
+			}
 		}
-	}
-	if !foundMatchingToleration {
-		return fmt.Errorf(errfmt, podSpec.NodeSelector, nodeSelectorTestValue)
+		if !foundMatchingToleration {
+			return fmt.Errorf(errfmt, podSpec.NodeSelector, nodePlacement.NodeSelector)
+		}
 	}
 	return nil
 }
