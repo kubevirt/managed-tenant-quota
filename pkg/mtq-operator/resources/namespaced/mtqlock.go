@@ -3,6 +3,7 @@ package namespaced
 import (
 	"fmt"
 	rbacv1 "k8s.io/api/rbac/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utils2 "kubevirt.io/managed-tenant-quota/pkg/mtq-operator/resources/utils"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -50,7 +51,7 @@ func createMTQLockService() *corev1.Service {
 
 func createMTQLockDeployment(image, pullPolicy string, imagePullSecrets []corev1.LocalObjectReference, priorityClassName string, verbosity string, infraNodePlacement *sdkapi.NodePlacement) *appsv1.Deployment {
 	defaultMode := corev1.ConfigMapVolumeSourceDefaultMode
-	deployment := utils2.CreateDeployment(mtqLockResourceName, utils2.MTQLabel, mtqLockResourceName, mtqLockResourceName, imagePullSecrets, 1, infraNodePlacement)
+	deployment := utils2.CreateDeployment(mtqLockResourceName, utils2.MTQLabel, mtqLockResourceName, mtqLockResourceName, imagePullSecrets, 2, infraNodePlacement)
 	if priorityClassName != "" {
 		deployment.Spec.Template.Spec.PriorityClassName = priorityClassName
 	}
@@ -120,6 +121,18 @@ func createMTQLockDeployment(image, pullPolicy string, imagePullSecrets []corev1
 				Secret: &corev1.SecretVolumeSource{
 					SecretName:  SecretResourceName,
 					DefaultMode: &defaultMode,
+				},
+			},
+		},
+	}
+	deployment.Spec.Template.Spec.Affinity = &corev1.Affinity{
+		PodAntiAffinity: &corev1.PodAntiAffinity{
+			RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
+				{
+					LabelSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{utils2.MTQLabel: mtqLockResourceName},
+					},
+					TopologyKey: "kubernetes.io/hostname",
 				},
 			},
 		},
