@@ -220,7 +220,7 @@ func (mca *MtqControllerApp) setupLeaderElector() (err error) {
 			Callbacks: leaderelection.LeaderCallbacks{
 				OnStartedLeading: mca.onStartedLeading(),
 				OnStoppedLeading: func() {
-					golog.Fatal("leaderelection lost")
+					golog.Fatal("leade relection lost")
 				},
 			},
 		})
