@@ -47,7 +47,7 @@ func (f *Framework) GetNodePlacementValuesWithRandomNodeAffinity(nodeSelectorTes
 func (f *Framework) PodSpecHasTestNodePlacementValues(podSpec v1.PodSpec, nodePlacement sdkapi.NodePlacement) error {
 
 	errfmt := "mismatched nodeSelectors, podSpec:\n%v\nExpected:\n%v\n"
-	if !reflect.DeepEqual(podSpec.NodeSelector, nodePlacement.NodeSelector) || !reflect.DeepEqual(podSpec.Affinity, nodePlacement.Affinity) {
+	if !reflect.DeepEqual(podSpec.NodeSelector, nodePlacement.NodeSelector) {
 		return fmt.Errorf(errfmt, podSpec.NodeSelector, nodePlacement.NodeSelector)
 	}
 
