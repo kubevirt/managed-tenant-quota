@@ -80,6 +80,19 @@ func getClusterPolicyRules() []rbacv1.PolicyRule {
 		},
 		{
 			APIGroups: []string{
+				"mtq.kubevirt.io",
+			},
+			Resources: []string{
+				"mtqs/status",
+			},
+			Verbs: []string{
+				"get",
+				"update",
+				"patch",
+			},
+		},
+		{
+			APIGroups: []string{
 				"scheduling.k8s.io",
 			},
 			Resources: []string{
