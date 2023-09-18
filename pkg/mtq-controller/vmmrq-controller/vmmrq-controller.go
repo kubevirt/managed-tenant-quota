@@ -141,7 +141,7 @@ func (ctrl *VmmrqController) addVmmrq(obj interface{}) {
 }
 
 // When a virtualMachineMigrationResourceQuota is updated , figure out if there are pending migration in the namespace
-// if there are we should push them into the queue to accelerate the target creation process
+// if there are we should push them into the queue to accelerate the target creation process.
 func (ctrl *VmmrqController) updateVmmrq(old, cur interface{}) {
 	atLeastOneMigration := false
 	curVmmrq := cur.(*v1alpha12.VirtualMachineMigrationResourceQuota)
