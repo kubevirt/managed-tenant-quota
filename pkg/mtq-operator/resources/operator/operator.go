@@ -137,17 +137,6 @@ func getNamespacedPolicyRules() []rbacv1.PolicyRule {
 				"",
 			},
 			Resources: []string{
-				"configmaps/finalizers",
-			},
-			Verbs: []string{
-				"update",
-			},
-		},
-		{
-			APIGroups: []string{
-				"",
-			},
-			Resources: []string{
 				"pods",
 				"services",
 				"endpoints",
