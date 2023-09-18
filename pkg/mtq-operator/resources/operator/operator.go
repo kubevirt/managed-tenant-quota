@@ -68,6 +68,7 @@ func getClusterPolicyRules() []rbacv1.PolicyRule {
 			},
 			Resources: []string{
 				"mtqs",
+				"mtqs/finalizers",
 			},
 			Verbs: []string{
 				"get",
@@ -129,17 +130,6 @@ func getNamespacedPolicyRules() []rbacv1.PolicyRule {
 				"list",
 				"watch",
 				"delete",
-				"update",
-			},
-		},
-		{
-			APIGroups: []string{
-				"",
-			},
-			Resources: []string{
-				"configmaps/finalizers",
-			},
-			Verbs: []string{
 				"update",
 			},
 		},
