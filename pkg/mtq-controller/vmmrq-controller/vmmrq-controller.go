@@ -165,7 +165,7 @@ func (ctrl *VmmrqController) updateVmmrq(old, cur interface{}) {
 			}
 		}
 	}
-	if !atLeastOneMigration { //should update vmmrq.status even if there aren't any blocked migrations
+	if !atLeastOneMigration { //should update vmmrq.status even if there aren't any blocked migrations.
 		ctrl.migrationQueue.Add(curVmmrq.Namespace + "/fake")
 	}
 	return
