@@ -2,7 +2,6 @@ apiVersion: mtq.kubevirt.io/v1alpha1
 kind: VirtualMachineMigrationResourceQuota
 metadata:
   name: my-vmmrq
-  namespace: test
 spec:
   additionalMigrationResources:
     requests.cpu: 500m
