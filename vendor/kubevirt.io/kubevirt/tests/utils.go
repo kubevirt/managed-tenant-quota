@@ -281,11 +281,8 @@ func RunVMIAndExpectLaunchWithDataVolume(vmi *v1.VirtualMachineInstance, dv *cdi
 	By("Waiting until the DataVolume is ready")
 	libstorage.EventuallyDV(dv, timeout, HaveSucceeded())
 	By(WaitingVMInstanceStart)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 	warningsIgnoreList := []string{"didn't find PVC", "unable to find datavolume"}
-	wp := watcher.WarningsPolicy{FailOnWarnings: true, WarningsIgnoreList: warningsIgnoreList}
-	return libwait.WaitForVMIStart(ctx, obj, timeout, wp)
+	return libwait.WaitForSuccessfulVMIStartWithTimeoutIgnoreSelectedWarnings(obj, timeout, warningsIgnoreList)
 }
 
 func RunVMIAndExpectLaunchIgnoreWarnings(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
@@ -535,7 +532,7 @@ func NewRandomVirtualMachineInstanceWithDisk(imageUrl, namespace, sc string, acc
 	var err error
 	dv, err = virtCli.CdiClient().CdiV1beta1().DataVolumes(namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
-	libstorage.EventuallyDV(dv, 240, Or(HaveSucceeded(), BeInPhase(cdiv1.WaitForFirstConsumer)))
+	libstorage.EventuallyDV(dv, 240, Or(HaveSucceeded(), BeInPhase(cdiv1.WaitForFirstConsumer), BeInPhase(cdiv1.PendingPopulation)))
 	return NewRandomVMIWithDataVolume(dv.Name), dv
 }
 
@@ -2171,7 +2168,7 @@ func VMILauncherIgnoreWarnings(virtClient kubecli.KubevirtClient) func(vmi *v1.V
 		Expect(ok).To(BeTrue(), "Object is not of type *v1.VirtualMachineInstance")
 		// Warnings are okay. We'll receive a warning that the agent isn't connected
 		// during bootup, but that is transient
-		Expect(libwait.WaitForSuccessfulVMIStartIgnoreWarnings(obj).Status.NodeName).ToNot(BeEmpty())
+		Expect(libwait.WaitForSuccessfulVMIStartIgnoreWarnings(vmi).Status.NodeName).ToNot(BeEmpty())
 		return vmi
 	}
 }
