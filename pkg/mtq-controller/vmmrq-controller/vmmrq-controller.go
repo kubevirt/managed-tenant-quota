@@ -20,7 +20,10 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
+	api "k8s.io/kubernetes/pkg/apis/core"
+	v13 "k8s.io/kubernetes/pkg/apis/core/v1"
 	"k8s.io/kubernetes/pkg/quota/v1/evaluator/core"
+	limitrange "k8s.io/kubernetes/plugin/pkg/admission/limitranger"
 	"k8s.io/utils/clock"
 	v1alpha1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -59,6 +62,7 @@ type VmmrqController struct {
 	internalLock                                 *sync.Mutex
 	nsLockMap                                    *namespace_lock_utils.NamespaceLockMap
 	podInformer                                  cache.SharedIndexInformer
+	limitRangeInformer                           cache.SharedIndexInformer
 	migrationInformer                            cache.SharedIndexInformer
 	resourceQuotaInformer                        cache.SharedIndexInformer
 	vmmrqInformer                                cache.SharedIndexInformer
@@ -81,6 +85,7 @@ func NewVmmrqController(virtCli kubecli.KubevirtClient,
 	vmiInformer cache.SharedIndexInformer,
 	migrationInformer cache.SharedIndexInformer,
 	podInformer cache.SharedIndexInformer,
+	limitRangeInformer cache.SharedIndexInformer,
 	kubeVirtInformer cache.SharedIndexInformer,
 	crdInformer cache.SharedIndexInformer,
 	pvcInformer cache.SharedIndexInformer,
@@ -96,6 +101,7 @@ func NewVmmrqController(virtCli kubecli.KubevirtClient,
 		mtqCli:                mtqCli,
 		migrationInformer:     migrationInformer,
 		podInformer:           podInformer,
+		limitRangeInformer:    limitRangeInformer,
 		resourceQuotaInformer: resourceQuotaInformer,
 		vmmrqInformer:         vmmrqInformer,
 		vmiInformer:           vmiInformer,
@@ -277,6 +283,15 @@ func (ctrl *VmmrqController) execute(key string) (error, enqueueState) {
 		if err != nil {
 			return err, Immediate
 		}
+		lrWithMaxDefaults, err := ctrl.getLimitRangeWithMaxDefaults(migartionNS)
+		if err != nil {
+			return err, Immediate
+		}
+		err = addLimitRangeDefault(lrWithMaxDefaults, targetPod)
+		if err != nil {
+			return err, Immediate
+		}
+
 		currBlockingRQList, err := ctrl.getCurrBlockingRQInNS(vmmrq, migration, targetPod, vmmrq.Status.AdditionalMigrationResources)
 		if err != nil {
 			return err, Immediate
@@ -403,6 +418,45 @@ func (ctrl *VmmrqController) getAllBlockingRQsInNS(vmmrq *v1alpha12.VirtualMachi
 		}
 	}
 	return blockingRQInNS, nil
+}
+
+func (ctrl *VmmrqController) getLimitRangeWithMaxDefaults(ns string) (*v1.LimitRange, error) {
+	maxDefaults := make(v1.ResourceList)
+	maxRequests := make(v1.ResourceList)
+	currLRListObj, err := ctrl.limitRangeInformer.GetIndexer().ByIndex(cache.NamespaceIndex, ns)
+	if err != nil {
+		return nil, err
+	}
+	for _, lrObj := range currLRListObj {
+		lr := lrObj.(*v1.LimitRange)
+		for _, limitRangeItem := range lr.Spec.Limits {
+			if limitRangeItem.Type != v1.LimitTypeContainer {
+				continue
+			}
+			for resourceName, quantity := range limitRangeItem.Default {
+				if val, exists := maxDefaults[resourceName]; !exists || quantity.Cmp(val) > 0 {
+					maxDefaults[resourceName] = quantity
+				}
+			}
+			for resourceName, quantity := range limitRangeItem.DefaultRequest {
+				if val, exists := maxRequests[resourceName]; !exists || quantity.Cmp(val) > 0 {
+					maxRequests[resourceName] = quantity
+				}
+			}
+		}
+	}
+
+	return &v1.LimitRange{
+		Spec: v1.LimitRangeSpec{
+			Limits: []v1.LimitRangeItem{
+				{
+					Default:        maxDefaults,
+					DefaultRequest: maxRequests,
+					Type:           v1.LimitTypeContainer,
+				},
+			},
+		},
+	}, nil
 }
 
 func (ctrl *VmmrqController) Run(threadiness int, stop <-chan struct{}) error {
@@ -624,6 +678,8 @@ func (ctrl *VmmrqController) getCurrBlockingRQInNS(vmmrq *v1alpha12.VirtualMachi
 			podToCreate.Namespace = m.Namespace // for some reason renderLaunchManifest doesn't set the pod namespace
 			ctrl.recorder.Eventf(podToCreate, v1.EventTypeWarning, FailedToReleaseMigrationReason, evtMsg, errWithModifiedRQ.Error())
 			return []string{}, nil
+		} else {
+			log.Log.Info(fmt.Sprintf("errWithCurrRQ:%v errWithModifiedRQ: %v", errWithCurrRQ, errWithModifiedRQ))
 		}
 	}
 	return currRQListItems, nil
@@ -707,4 +763,20 @@ func getCurrLauncherLimitedResource(podEvaluator v12.Evaluator, podToCreate *v1.
 
 func (ctrl *VmmrqController) shouldSetUpKVInformersAndTmplSrv() bool {
 	return ctrl.templateSvc == nil
+}
+func addLimitRangeDefault(lrWithMaxDefaults *v1.LimitRange, targetPod *v1.Pod) error {
+	apiTargetPod := &api.Pod{}
+	err := v13.Convert_v1_Pod_To_core_Pod(targetPod, apiTargetPod, nil)
+	if err != nil {
+		return err
+	}
+	err = limitrange.PodMutateLimitFunc(lrWithMaxDefaults, apiTargetPod)
+	if err != nil {
+		return err
+	}
+	err = v13.Convert_core_Pod_To_v1_Pod(apiTargetPod, targetPod, nil)
+	if err != nil {
+		return err
+	}
+	return nil
 }
