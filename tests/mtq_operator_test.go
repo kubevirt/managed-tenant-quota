@@ -46,12 +46,20 @@ var _ = Describe("ALL Operator tests", func() {
 
 			// Condition flags can be found here with their meaning https://github.com/kubevirt/hyperconverged-cluster-operator/blob/main/docs/conditions.md
 			It("Condition flags on CR should be healthy and operating", func() {
-				mtqObject := getMTQ(f)
-				conditionMap := sdk.GetConditionValues(mtqObject.Status.Conditions)
-				// Application should be fully operational and healthy.
-				Expect(conditionMap[conditions.ConditionAvailable]).To(Equal(corev1.ConditionTrue))
-				Expect(conditionMap[conditions.ConditionProgressing]).To(Equal(corev1.ConditionFalse))
-				Expect(conditionMap[conditions.ConditionDegraded]).To(Equal(corev1.ConditionFalse))
+				Eventually(func() error {
+					mtqObject := getMTQ(f)
+					conditionMap := sdk.GetConditionValues(mtqObject.Status.Conditions)
+					if conditionMap[conditions.ConditionAvailable] != corev1.ConditionTrue {
+						return fmt.Errorf("ConditionAvailable is false")
+					}
+					if conditionMap[conditions.ConditionProgressing] != corev1.ConditionFalse {
+						return fmt.Errorf("ConditionProgressing is true")
+					}
+					if conditionMap[conditions.ConditionDegraded] != corev1.ConditionFalse {
+						return fmt.Errorf("ConditionDegraded is true")
+					}
+					return nil
+				}, 5*time.Minute, 2*time.Second).Should(BeNil())
 			})
 		})
 
