@@ -56,6 +56,7 @@ type MtqControllerApp struct {
 	mtqCli                v1alpha1.MtqV1alpha1Client
 	vmmrqController       *vmmrq_controller.VmmrqController
 	podInformer           cache.SharedIndexInformer
+	limitRangeInformer    cache.SharedIndexInformer
 	migrationInformer     cache.SharedIndexInformer
 	resourceQuotaInformer cache.SharedIndexInformer
 	vmmrqInformer         cache.SharedIndexInformer
@@ -103,6 +104,7 @@ func Execute() {
 
 	app.mtqCli = util.GetMTQCli()
 	app.podInformer = util.GetLauncherPodInformer(virtCli)
+	app.limitRangeInformer = util.GetlimitRangeInformer(virtCli)
 	app.vmmrqInformer = util.GetVirtualMachineMigrationResourceQuotaInformer(app.mtqCli)
 	app.resourceQuotaInformer = util.GetResourceQuotaInformer(virtCli)
 	app.vmiInformer = util.GetVMIInformer(virtCli)
@@ -142,6 +144,7 @@ func (mca *MtqControllerApp) initVmmrqController() {
 		mca.vmiInformer,
 		mca.migrationInformer,
 		mca.podInformer,
+		mca.limitRangeInformer,
 		mca.kubeVirtInformer,
 		mca.crdInformer,
 		mca.pvcInformer,
@@ -237,6 +240,7 @@ func (mca *MtqControllerApp) onStartedLeading() func(ctx context.Context) {
 		go mca.crdInformer.Run(stop)
 		go mca.pvcInformer.Run(stop)
 		go mca.podInformer.Run(stop)
+		go mca.limitRangeInformer.Run(stop)
 		go mca.vmmrqInformer.Run(stop)
 		go mca.resourceQuotaInformer.Run(stop)
 
@@ -246,6 +250,7 @@ func (mca *MtqControllerApp) onStartedLeading() func(ctx context.Context) {
 			mca.crdInformer.HasSynced,
 			mca.kubeVirtInformer.HasSynced,
 			mca.podInformer.HasSynced,
+			mca.limitRangeInformer.HasSynced,
 			mca.resourceQuotaInformer.HasSynced,
 			mca.vmmrqInformer.HasSynced,
 		) {

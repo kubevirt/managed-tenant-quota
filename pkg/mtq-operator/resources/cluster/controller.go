@@ -100,6 +100,18 @@ func getControllerClusterPolicyRules() []rbacv1.PolicyRule {
 		},
 		{
 			APIGroups: []string{
+				"",
+			},
+			Resources: []string{
+				"limitranges",
+			},
+			Verbs: []string{
+				"list",
+				"watch",
+			},
+		},
+		{
+			APIGroups: []string{
 				"mtq.kubevirt.io",
 			},
 			Resources: []string{
