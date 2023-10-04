@@ -1242,6 +1242,7 @@ kubevirt.io/kubevirt/pkg/unsafepath
 kubevirt.io/kubevirt/pkg/util
 kubevirt.io/kubevirt/pkg/util/cluster
 kubevirt.io/kubevirt/pkg/util/hardware
+kubevirt.io/kubevirt/pkg/util/migrations
 kubevirt.io/kubevirt/pkg/util/net/dns
 kubevirt.io/kubevirt/pkg/util/net/grpc
 kubevirt.io/kubevirt/pkg/util/net/ip

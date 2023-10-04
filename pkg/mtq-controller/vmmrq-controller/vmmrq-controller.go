@@ -30,6 +30,7 @@ import (
 	"kubevirt.io/client-go/log"
 	corev1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"kubevirt.io/containerized-data-importer/pkg/util/cert/fetcher"
+	"kubevirt.io/kubevirt/pkg/util/migrations"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	v1alpha13 "kubevirt.io/managed-tenant-quota/pkg/generated/clientset/versioned/typed/core/v1alpha1"
@@ -50,9 +51,10 @@ const (
 type enqueueState string
 
 const (
-	Immediate enqueueState = "Immediate"
-	Forget    enqueueState = "Forget"
-	BackOff   enqueueState = "BackOff"
+	Immediate           enqueueState = "Immediate"
+	Forget              enqueueState = "Forget"
+	BackOff             enqueueState = "BackOff"
+	AddAfterFiveSeconds enqueueState = "AddAfterFiveSeconds"
 )
 
 type VmmrqController struct {
@@ -70,6 +72,7 @@ type VmmrqController struct {
 	kubeVirtInformer                             cache.SharedIndexInformer
 	crdInformer                                  cache.SharedIndexInformer
 	pvcInformer                                  cache.SharedIndexInformer
+	clusterConfig                                *virtconfig.ClusterConfig
 	virtualMachineMigrationResourceQuotaInformer cache.SharedIndexInformer
 	migrationQueue                               workqueue.RateLimitingInterface
 	virtCli                                      kubecli.KubevirtClient
@@ -218,6 +221,8 @@ func (ctrl *VmmrqController) Execute() bool {
 		ctrl.migrationQueue.Forget(key)
 	case Immediate:
 		ctrl.migrationQueue.Add(key)
+	case AddAfterFiveSeconds:
+		ctrl.migrationQueue.AddAfter(key, time.Second*5)
 	}
 
 	return true
@@ -273,10 +278,17 @@ func (ctrl *VmmrqController) execute(key string) (error, enqueueState) {
 			return err, BackOff
 		}
 	}
+	reachedMaxParallelMigrations, err := ctrl.reachedMaxParallelMigration(vmi.Status.NodeName)
+	if err != nil {
+		return err, Immediate
+	}
 
 	finalEnqueueState := Forget
 	if !isBlockedMigration {
 		delete(vmmrq.Status.MigrationsToBlockingResourceQuotas, migrationName)
+	} else if reachedMaxParallelMigrations {
+		delete(vmmrq.Status.MigrationsToBlockingResourceQuotas, migrationName)
+		finalEnqueueState = AddAfterFiveSeconds
 	} else if isBlockedMigration {
 		finalEnqueueState = Immediate
 		targetPod, err := ctrl.templateSvc.RenderLaunchManifest(vmi)
@@ -487,6 +499,7 @@ func (ctrl *VmmrqController) Run(threadiness int, stop <-chan struct{}) error {
 	if err != nil {
 		return err
 	}
+	ctrl.clusterConfig = clusterConfig
 
 	fakeVal := "NotImportantWeJustNeedTheTargetResources"
 	ctrl.templateSvc = services.NewTemplateService(fakeVal,
@@ -764,6 +777,7 @@ func getCurrLauncherLimitedResource(podEvaluator v12.Evaluator, podToCreate *v1.
 func (ctrl *VmmrqController) shouldSetUpKVInformersAndTmplSrv() bool {
 	return ctrl.templateSvc == nil
 }
+
 func addLimitRangeDefault(lrWithMaxDefaults *v1.LimitRange, targetPod *v1.Pod) error {
 	apiTargetPod := &api.Pod{}
 	err := v13.Convert_v1_Pod_To_core_Pod(targetPod, apiTargetPod, nil)
@@ -779,4 +793,94 @@ func addLimitRangeDefault(lrWithMaxDefaults *v1.LimitRange, targetPod *v1.Pod) e
 		return err
 	}
 	return nil
+}
+
+func (ctrl *VmmrqController) outboundMigrationsOnNode(node string, runningMigrations []*v1alpha1.VirtualMachineInstanceMigration) int {
+	sum := 0
+	for _, migration := range runningMigrations {
+		if vmi, exists, _ := ctrl.vmiInformer.GetStore().GetByKey(migration.Namespace + "/" + migration.Spec.VMIName); exists {
+			if vmi.(*v1alpha1.VirtualMachineInstance).Status.NodeName == node {
+				sum = sum + 1
+			}
+		}
+	}
+	return sum
+}
+
+// findRunningMigrations calcules how many migrations are running or in flight to be triggered to running
+// Migrations which are in running phase are added alongside with migrations which are still pending but
+// where we already see a target pod.
+func (ctrl *VmmrqController) findRunningMigrations() ([]*v1alpha1.VirtualMachineInstanceMigration, error) {
+	// Don't start new migrations if we wait for migration object updates because of new target pods
+	notFinishedMigrations := migrations.ListUnfinishedMigrations(ctrl.migrationInformer)
+	var runningMigrations []*v1alpha1.VirtualMachineInstanceMigration
+	for _, migration := range notFinishedMigrations {
+		if migration.IsRunning() {
+			runningMigrations = append(runningMigrations, migration)
+			continue
+		}
+		vmi, exists, err := ctrl.vmiInformer.GetStore().GetByKey(migration.Namespace + "/" + migration.Spec.VMIName)
+		if err != nil {
+			return nil, err
+		}
+		if !exists {
+			continue
+		}
+		pods, err := ctrl.listMatchingTargetPods(migration, vmi.(*v1alpha1.VirtualMachineInstance))
+		if err != nil {
+			return nil, err
+		}
+		if len(pods) > 0 {
+			runningMigrations = append(runningMigrations, migration)
+		}
+	}
+	return runningMigrations, nil
+}
+
+func (ctrl *VmmrqController) listMatchingTargetPods(migration *v1alpha1.VirtualMachineInstanceMigration, vmi *v1alpha1.VirtualMachineInstance) ([]*v1.Pod, error) {
+
+	selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{
+		MatchLabels: map[string]string{
+			v1alpha1.CreatedByLabel:    string(vmi.UID),
+			v1alpha1.AppLabel:          "virt-launcher",
+			v1alpha1.MigrationJobLabel: string(migration.UID),
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	objs, err := ctrl.podInformer.GetIndexer().ByIndex(cache.NamespaceIndex, migration.Namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	var pods []*v1.Pod
+	for _, obj := range objs {
+		pod := obj.(*v1.Pod)
+		if selector.Matches(labels.Set(pod.ObjectMeta.Labels)) {
+			pods = append(pods, pod)
+		}
+	}
+
+	return pods, nil
+}
+
+func (ctrl *VmmrqController) reachedMaxParallelMigration(nodeName string) (bool, error) {
+	runningMigrations, err := ctrl.findRunningMigrations()
+	if err != nil {
+		return false, fmt.Errorf("failed to determin the number of running migrations: %v", err)
+	}
+
+	if len(runningMigrations) >= int(*ctrl.clusterConfig.GetMigrationConfiguration().ParallelMigrationsPerCluster) {
+		return true, nil
+	}
+
+	outboundMigrations := ctrl.outboundMigrationsOnNode(nodeName, runningMigrations)
+
+	if outboundMigrations >= int(*ctrl.clusterConfig.GetMigrationConfiguration().ParallelOutboundMigrationsPerNode) {
+		return true, nil
+	}
+
+	return false, nil
 }
