@@ -39,6 +39,7 @@ require (
 	github.com/spf13/cobra v1.6.0 // indirect
 	golang.org/x/crypto v0.1.0 // indirect
 	golang.org/x/mod v0.10.0 // indirect
+	golang.org/x/sync v0.2.0 // indirect
 	golang.org/x/tools v0.9.1 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.2.0 // indirect
 	google.golang.org/genproto v0.0.0-20220720214146-176da50484ac // indirect

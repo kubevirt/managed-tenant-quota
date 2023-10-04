@@ -53,7 +53,7 @@ func GetMigrationInformer(virtCli kubecli.KubevirtClient) cache.SharedIndexInfor
 
 func GetVirtualMachineMigrationResourceQuotaInformer(mtqCli v1alpha12.MtqV1alpha1Client) cache.SharedIndexInformer {
 	listWatcher := NewListWatchFromClient(mtqCli.RESTClient(), "virtualmachinemigrationresourcequotas", k8sv1.NamespaceAll, fields.Everything(), labels.Everything())
-	return cache.NewSharedIndexInformer(listWatcher, & v1alpha13.VirtualMachineMigrationResourceQuota{}, 1*time.Hour, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	return cache.NewSharedIndexInformer(listWatcher, &v1alpha13.VirtualMachineMigrationResourceQuota{}, 1*time.Hour, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 }
 
 func GetLauncherPodInformer(virtCli kubecli.KubevirtClient) cache.SharedIndexInformer {
@@ -93,6 +93,10 @@ func CRDInformer(virtCli kubecli.KubevirtClient) cache.SharedIndexInformer {
 func GetResourceQuotaInformer(virtCli kubecli.KubevirtClient) cache.SharedIndexInformer {
 	listWatcher := NewListWatchFromClient(virtCli.CoreV1().RESTClient(), "resourcequotas", k8sv1.NamespaceAll, fields.Everything(), labels.Everything())
 	return cache.NewSharedIndexInformer(listWatcher, &v1.ResourceQuota{}, 1*time.Hour, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+}
+func GetlimitRangeInformer(virtCli kubecli.KubevirtClient) cache.SharedIndexInformer {
+	listWatcher := NewListWatchFromClient(virtCli.CoreV1().RESTClient(), "limitranges", k8sv1.NamespaceAll, fields.Everything(), labels.Everything())
+	return cache.NewSharedIndexInformer(listWatcher, &v1.LimitRange{}, 1*time.Hour, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 }
 
 func PersistentVolumeClaim(virtCli kubecli.KubevirtClient) cache.SharedIndexInformer {
