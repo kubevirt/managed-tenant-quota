@@ -416,6 +416,66 @@ var _ = Describe("Blocked migration", func() {
 
 	})
 
+	It("should work with LimitRange", func() {
+		limitRange := &v1.LimitRange{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "limit.range.test",
+				Namespace: f.Namespace.GetName(),
+			},
+			Spec: v1.LimitRangeSpec{
+				Limits: []v1.LimitRangeItem{
+					{
+						Default: v1.ResourceList{
+							v1.ResourceCPU:    resource.MustParse("200m"),
+							v1.ResourceMemory: resource.MustParse("1Gi"),
+						},
+						Type: v1.LimitTypeContainer,
+					},
+				},
+			},
+		}
+		_, err := f.VirtClient.CoreV1().LimitRanges(limitRange.Namespace).Create(context.TODO(), limitRange, metav1.CreateOptions{})
+		Expect(err).To(Not(HaveOccurred()))
+		vmi := libvmi.NewAlpine(
+			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			libvmi.WithNetwork(kv1.DefaultPodNetwork()),
+			libvmi.WithNamespace(f.Namespace.GetName()),
+			libvmi.WithResourceCPU("100m"),
+			libvmi.WithResourceMemory("512Mi"),
+		)
+		vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
+
+		vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
+		podResources, err := getCurrLauncherUsage(vmiPod)
+		Expect(err).To(Not(HaveOccurred()))
+		rq := NewQuotaBuilder().
+			WithNamespace(f.Namespace.GetName()).
+			WithName("test-quota").
+			WithResource(v1.ResourceRequestsMemory, podResources[v1.ResourceRequestsMemory]).
+			WithResource(v1.ResourceRequestsCPU, podResources[v1.ResourceRequestsCPU]).
+			WithResource(v1.ResourceLimitsMemory, resource.MustParse("4Gi")).
+			WithResource(v1.ResourceLimitsCPU, resource.MustParse("1")).
+			Build()
+		err = createRQWithHardLimitOrRequestAndWaitForRegistration(f.VirtClient, rq)
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Starting the Migrations")
+		vmmrq := NewVmmrqBuilder().
+			WithNamespace(f.Namespace.GetName()).
+			WithName("test-vmmrq").
+			WithResource(v1.ResourceRequestsMemory, podResources[v1.ResourceRequestsMemory]).
+			WithResource(v1.ResourceRequestsCPU, podResources[v1.ResourceRequestsCPU]).
+			WithResource(v1.ResourceLimitsMemory, resource.MustParse("4Gi")).
+			WithResource(v1.ResourceLimitsCPU, resource.MustParse("1")).
+			Build()
+		_, err = f.MtqClient.MtqV1alpha1().VirtualMachineMigrationResourceQuotas(vmmrq.Namespace).Create(context.TODO(), vmmrq, metav1.CreateOptions{})
+		Expect(err).To(Not(HaveOccurred()))
+
+		migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+		migration = tests.RunMigrationAndExpectCompletion(f.VirtClient, migration, 240)
+
+	})
+
 })
 
 func migrationHasRejectedByResourceQuotaCond(virtClient kubecli.KubevirtClient, migration *kv1.VirtualMachineInstanceMigration) bool {
