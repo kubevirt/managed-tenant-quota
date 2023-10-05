@@ -495,10 +495,13 @@ var _ = Describe("ALL Operator tests", func() {
 			})
 
 			AfterEach(func() {
-				cr := getMTQ(f)
-				cr.Spec.PriorityClass = mtq.Spec.PriorityClass
-				_, err := f.MtqClient.MtqV1alpha1().MTQs().Update(context.TODO(), cr, metav1.UpdateOptions{})
-				Expect(err).ToNot(HaveOccurred())
+				var cr *mtqv1.MTQ
+				Eventually(func() error {
+					cr = getMTQ(f)
+					cr.Spec.PriorityClass = mtq.Spec.PriorityClass
+					_, err := f.MtqClient.MtqV1alpha1().MTQs().Update(context.TODO(), cr, metav1.UpdateOptions{})
+					return err
+				}, 2*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 
 				if !utils.IsOpenshift(f.K8sClient) {
 					Eventually(func() error {
