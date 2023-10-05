@@ -318,7 +318,8 @@ func (ctrl *VmmrqController) execute(key string) (error, enqueueState) {
 	case namespace_lock_utils.Unlocked:
 		nsLocked = false
 	case namespace_lock_utils.Unknown: //expensive api call
-		nsLocked, err = webhooklock.NamespaceLocked(migartionNS, ctrl.mtqNs, ctrl.virtCli)
+		caBundle, err := ctrl.serverBundleFetcher.BundleBytes()
+		nsLocked, err = webhooklock.NamespaceLocked(migartionNS, ctrl.mtqNs, ctrl.virtCli, caBundle)
 		if err != nil {
 			return err, Immediate
 		}
