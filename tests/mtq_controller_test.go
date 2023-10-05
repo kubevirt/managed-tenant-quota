@@ -142,6 +142,89 @@ var _ = Describe("Blocked migration", func() {
 
 		})
 
+		It("Check that max parallel migration is being considered", func() {
+			nodes, err := f.VirtClient.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			vmiNames := []string{"vmi-1", "vmi-2", "vmi-3", "vmi-4"}
+			var vmiList []*kv1.VirtualMachineInstance
+			var vmimList []*kv1.VirtualMachineInstanceMigration
+			for _, vmiName := range vmiNames {
+				vmi := libvmi.NewAlpine(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(kv1.DefaultPodNetwork()),
+					libvmi.WithNamespace(f.Namespace.GetName()),
+					libvmi.WithResourceMemory("256Mi"),
+					WithNodePreferredAffinityFor(&nodes.Items[0]),
+				)
+				vmi.SetName(vmiName)
+
+				// Assuming "tests.RunVMIAndExpectLaunch" function launches the VMI and performs expectations
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
+
+				// Add the VMI to the VMI list
+				vmiList = append(vmiList, vmi)
+			}
+
+			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmiList[0], f.Namespace.GetName())
+			podResources, err := getCurrLauncherUsage(vmiPod)
+			originalQuantity := podResources[v1.ResourceRequestsMemory]
+			multipliedValue := originalQuantity.Value() * int64(len(vmiNames))
+			multipliedQuantity := *resource.NewQuantity(int64(multipliedValue), originalQuantity.Format)
+
+			Expect(err).To(Not(HaveOccurred()))
+			rq := NewQuotaBuilder().
+				WithNamespace(f.Namespace.GetName()).
+				WithName("test-quota").
+				WithResource(v1.ResourceRequestsMemory, multipliedQuantity).
+				Build()
+
+			vmmrq := NewVmmrqBuilder().
+				WithNamespace(f.Namespace.GetName()).
+				WithName("test-vmmrq").
+				WithResource(v1.ResourceRequestsMemory, multipliedQuantity).
+				Build()
+			err = createRQWithHardLimitOrRequestAndWaitForRegistration(f.VirtClient, rq)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Starting the Migration")
+			for _, vmi := range vmiList {
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration = tests.RunMigration(f.VirtClient, migration)
+				Eventually(func() error {
+					if migrationHasRejectedByResourceQuotaCond(f.VirtClient, migration) {
+						return nil
+					}
+					return fmt.Errorf("migration is in the phase: %s", migration.Status.Phase)
+				}, 60*time.Second, 1*time.Second).ShouldNot(HaveOccurred(), fmt.Sprintf("migration should be blocked after %d s", 20*time.Second))
+				vmimList = append(vmimList, migration)
+			}
+
+			_, err = f.MtqClient.MtqV1alpha1().VirtualMachineMigrationResourceQuotas(vmmrq.Namespace).Create(context.TODO(), vmmrq, metav1.CreateOptions{})
+
+			Consistently(func() error {
+				valid, err := validLocking(f.Namespace.GetName(), f.VirtClient)
+				if err != nil {
+					return err
+				}
+				if !valid {
+					return fmt.Errorf("locking is not valid")
+				}
+				return nil
+			}, 40*time.Second, 1*time.Second).ShouldNot(HaveOccurred(), "locking lasted more than 10s")
+
+			Expect(err).To(Not(HaveOccurred()))
+			for _, migration := range vmimList {
+				Eventually(func() error {
+					if !migrationHasRejectedByResourceQuotaCond(f.VirtClient, migration) {
+						return nil
+					}
+					return fmt.Errorf("migration is still blocked in the phase: %s", migration.Status.Phase)
+				}, 200*time.Second, 1*time.Second).ShouldNot(HaveOccurred(), fmt.Sprintf("migration be unlocked after %d s", 20*time.Second))
+			}
+
+		})
+
 		It("single blocked migration with several restricting resourceQuotas ", func() {
 			vmi := libvmi.NewAlpine(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
@@ -644,4 +727,67 @@ func limitRequestToValidContainerResourceName(resourceName v1.ResourceName) (v1.
 	default:
 		return "", fmt.Errorf("limitRequestToValidContainerResourceName support only resource that fits to requests or limits Conversion")
 	}
+}
+
+func WithNodePreferredAffinityFor(node *v1.Node) libvmi.Option {
+	return func(vmi *kv1.VirtualMachineInstance) {
+		nodeSelectorTerm := v1.PreferredSchedulingTerm{
+			Preference: v1.NodeSelectorTerm{
+				MatchExpressions: []v1.NodeSelectorRequirement{
+					{
+						Key: "kubernetes.io/hostname", Operator: v1.NodeSelectorOpIn, Values: []string{node.Name},
+					},
+				},
+			},
+			Weight: int32(100),
+		}
+
+		if vmi.Spec.Affinity == nil {
+			vmi.Spec.Affinity = &v1.Affinity{}
+		}
+
+		if vmi.Spec.Affinity.NodeAffinity == nil {
+			vmi.Spec.Affinity.NodeAffinity = &v1.NodeAffinity{}
+		}
+
+		if vmi.Spec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution == nil {
+			vmi.Spec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution = []v1.PreferredSchedulingTerm{}
+		}
+
+		vmi.Spec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution =
+			append(vmi.Spec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution, nodeSelectorTerm)
+	}
+}
+
+func validLocking(namespace string, virtClient kubecli.KubevirtClient) (bool, error) {
+
+	// Define a list options to filter ValidatingWebhookConfigurations in the specified namespace.
+	listOptions := metav1.ListOptions{
+		FieldSelector: "metadata.namespace=" + namespace,
+	}
+	// List ValidatingWebhookConfigurations in the namespace.
+	webhookList, err := virtClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().List(context.Background(), listOptions)
+	if err != nil {
+		return false, err
+	}
+
+	// Check if there is only one ValidatingWebhookConfiguration.
+	if len(webhookList.Items) > 1 {
+		return false, fmt.Errorf("there should be only one locking WHC in the testing ns")
+	} else if len(webhookList.Items) == 0 {
+		return true, nil
+	}
+
+	// Get the creation timestamp of the ValidatingWebhookConfiguration.
+	creationTime := webhookList.Items[0].GetCreationTimestamp().Time
+
+	// Calculate the time difference in seconds.
+	duration := time.Since(creationTime).Seconds()
+
+	// Check if the ValidatingWebhookConfiguration was created less than 10 seconds ago.
+	if duration <= 10 {
+		return true, nil
+	}
+
+	return false, nil
 }
