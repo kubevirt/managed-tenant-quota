@@ -195,6 +195,38 @@ func (ctrl *VmmrqController) enqueueMigration(obj interface{}) {
 	ctrl.migrationQueue.Add(key)
 }
 
+func (ctrl *VmmrqController) enqueueAll() {
+	vmmrqObjs := ctrl.vmmrqInformer.GetIndexer().List()
+	for _, vmmrqObj := range vmmrqObjs {
+		vmmrq := vmmrqObj.(*v1alpha12.VirtualMachineMigrationResourceQuota)
+		if vmmrq.Status.OriginalBlockingResourceQuotas == nil || len(vmmrq.Status.OriginalBlockingResourceQuotas) == 0 {
+			continue
+		}
+		if len(vmmrq.Status.MigrationsToBlockingResourceQuotas) != 0 {
+			for blockedMigrationName := range vmmrq.Status.MigrationsToBlockingResourceQuotas {
+				ctrl.migrationQueue.Add(vmmrq.Namespace + "/" + blockedMigrationName)
+			}
+		} else {
+			//should update vmmrq.status even if there aren't any blocked migrations
+			ctrl.migrationQueue.Add(vmmrq.Namespace + "/fake")
+		}
+	}
+
+	objs := ctrl.migrationInformer.GetIndexer().List()
+	for _, obj := range objs {
+		migration := obj.(*v1alpha1.VirtualMachineInstanceMigration)
+		if migration.Status.Conditions == nil {
+			continue
+		}
+		for _, cond := range migration.Status.Conditions {
+			if cond.Type == v1alpha1.VirtualMachineInstanceMigrationRejectedByResourceQuota {
+				ctrl.enqueueMigration(migration)
+			}
+		}
+	}
+	return
+}
+
 func (ctrl *VmmrqController) runWorker() {
 	for ctrl.Execute() {
 	}
@@ -510,6 +542,7 @@ func (ctrl *VmmrqController) Run(threadiness int, stop <-chan struct{}) error {
 	for i := 0; i < threadiness; i++ {
 		go wait.Until(ctrl.runWorker, time.Second, stop)
 	}
+	go wait.Until(ctrl.enqueueAll, time.Second*30, ctrl.stop)
 
 	<-stop
 	return nil
