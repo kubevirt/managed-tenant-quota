@@ -401,6 +401,9 @@ golang.org/x/net/trace
 ## explicit; go 1.11
 golang.org/x/oauth2
 golang.org/x/oauth2/internal
+# golang.org/x/sync v0.2.0
+## explicit
+golang.org/x/sync/singleflight
 # golang.org/x/sys v0.8.0
 ## explicit; go 1.17
 golang.org/x/sys/cpu
@@ -1122,6 +1125,7 @@ k8s.io/kubernetes/pkg/apis/core/v1/helper/qos
 k8s.io/kubernetes/pkg/features
 k8s.io/kubernetes/pkg/quota/v1/evaluator/core
 k8s.io/kubernetes/pkg/util/parsers
+k8s.io/kubernetes/plugin/pkg/admission/limitranger
 # k8s.io/utils v0.0.0-20230505201702-9f6742963106
 ## explicit; go 1.18
 k8s.io/utils/buffer
@@ -1135,7 +1139,7 @@ k8s.io/utils/net
 k8s.io/utils/pointer
 k8s.io/utils/strings/slices
 k8s.io/utils/trace
-# kubevirt.io/api v1.0.0-rc.0
+# kubevirt.io/api v1.0.0
 ## explicit; go 1.17
 kubevirt.io/api/clone
 kubevirt.io/api/clone/v1alpha1
@@ -1153,7 +1157,7 @@ kubevirt.io/api/pool
 kubevirt.io/api/pool/v1alpha1
 kubevirt.io/api/snapshot
 kubevirt.io/api/snapshot/v1alpha1
-# kubevirt.io/client-go v1.0.0-rc.0
+# kubevirt.io/client-go v1.0.0
 ## explicit; go 1.17
 kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned
 kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/scheme
@@ -1203,7 +1207,7 @@ kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/resources
 # kubevirt.io/controller-lifecycle-operator-sdk/api v0.0.0-20220329064328-f3cc58c6ed90 => kubevirt.io/controller-lifecycle-operator-sdk/api v0.0.0-20220329064328-f3cc58c6ed90
 ## explicit; go 1.17
 kubevirt.io/controller-lifecycle-operator-sdk/api
-# kubevirt.io/kubevirt v1.0.0-rc.0
+# kubevirt.io/kubevirt v1.0.0
 ## explicit; go 1.19
 kubevirt.io/kubevirt/pkg/apimachinery/patch
 kubevirt.io/kubevirt/pkg/certificates/bootstrap

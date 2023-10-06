@@ -40,7 +40,7 @@ else
 endif
 
 ifeq ($(origin KUBEVIRT_RELEASE), undefined)
-	KUBEVIRT_RELEASE="latest_nightly"
+	KUBEVIRT_RELEASE="latest_stable"
 endif
 
 all: manifests build-images

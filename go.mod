@@ -17,7 +17,6 @@ require (
 require (
 	github.com/appscode/jsonpatch v1.0.1 // indirect
 	github.com/blang/semver v3.5.1+incompatible // indirect
-	github.com/emicklei/go-restful/v3 v3.9.0 // indirect
 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
 	github.com/fatih/color v1.13.0 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
@@ -40,6 +39,7 @@ require (
 	github.com/spf13/cobra v1.6.0 // indirect
 	golang.org/x/crypto v0.1.0 // indirect
 	golang.org/x/mod v0.10.0 // indirect
+	golang.org/x/sync v0.2.0 // indirect
 	golang.org/x/tools v0.9.1 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.2.0 // indirect
 	google.golang.org/genproto v0.0.0-20220720214146-176da50484ac // indirect
@@ -53,6 +53,7 @@ require (
 
 require (
 	github.com/coreos/go-semver v0.3.0
+	github.com/emicklei/go-restful/v3 v3.9.0
 	github.com/ghodss/yaml v1.0.0
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/onsi/ginkgo/v2 v2.9.5
@@ -125,12 +126,12 @@ require (
 	k8s.io/kube-openapi v0.0.0-20230501164219-8b0f38b5fd1f // indirect
 	k8s.io/kubernetes v1.26.3
 	k8s.io/utils v0.0.0-20230505201702-9f6742963106
-	kubevirt.io/api v1.0.0-rc.0
-	kubevirt.io/client-go v1.0.0-rc.0
+	kubevirt.io/api v1.0.0
+	kubevirt.io/client-go v1.0.0
 	kubevirt.io/containerized-data-importer-api v1.57.0-alpha1
 	kubevirt.io/controller-lifecycle-operator-sdk v0.2.4
 	kubevirt.io/controller-lifecycle-operator-sdk/api v0.0.0-20220329064328-f3cc58c6ed90
-	kubevirt.io/kubevirt v1.0.0-rc.0
+	kubevirt.io/kubevirt v1.0.0
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
