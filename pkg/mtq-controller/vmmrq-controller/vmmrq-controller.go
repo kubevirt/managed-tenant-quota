@@ -279,7 +279,7 @@ func (ctrl *VmmrqController) execute(key string) (error, enqueueState) {
 		return err, BackOff
 	}
 	if len(vmmrqObjsList.Items) != 1 {
-		return fmt.Errorf("there should be 1 virtualMachineMigrationResourceQuota in %v namespace", migartionNS), Forget
+		return fmt.Errorf("there should be 1 virtualMachineMigrationResourceQuota in %v namespace.", migartionNS), Forget
 	}
 
 	vmmrq := &vmmrqObjsList.Items[0]
