@@ -27,7 +27,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	
+
 	kubev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
@@ -324,7 +324,6 @@ func generateContainerFromVolume(vmi *v1.VirtualMachineInstance, config *virtcon
 		name = diskContainerName
 		copyPathArg := path.Join(volumeMountDir, mountedDiskName)
 		args = []string{"--copy-path", copyPathArg}
-
 	}
 
 	noPrivilegeEscalation := false
