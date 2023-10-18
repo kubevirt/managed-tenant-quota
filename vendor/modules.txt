@@ -627,7 +627,7 @@ k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/scheme
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1
-# k8s.io/apimachinery v0.27.1 => k8s.io/apimachinery v0.26.1
+# k8s.io/apimachinery v0.27.1 => k8s.io/apimachinery v0.26.4
 ## explicit; go 1.19
 k8s.io/apimachinery/pkg/api/equality
 k8s.io/apimachinery/pkg/api/errors
@@ -1139,7 +1139,7 @@ k8s.io/utils/net
 k8s.io/utils/pointer
 k8s.io/utils/strings/slices
 k8s.io/utils/trace
-# kubevirt.io/api v1.0.0
+# kubevirt.io/api v1.0.1
 ## explicit; go 1.17
 kubevirt.io/api/clone
 kubevirt.io/api/clone/v1alpha1
@@ -1157,7 +1157,7 @@ kubevirt.io/api/pool
 kubevirt.io/api/pool/v1alpha1
 kubevirt.io/api/snapshot
 kubevirt.io/api/snapshot/v1alpha1
-# kubevirt.io/client-go v1.0.0
+# kubevirt.io/client-go v1.0.1
 ## explicit; go 1.17
 kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned
 kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/scheme
@@ -1188,8 +1188,8 @@ kubevirt.io/client-go/precond
 kubevirt.io/client-go/subresources
 kubevirt.io/client-go/util
 kubevirt.io/client-go/version
-# kubevirt.io/containerized-data-importer v1.56.0
-## explicit; go 1.18
+# kubevirt.io/containerized-data-importer v1.40.0
+## explicit; go 1.14
 kubevirt.io/containerized-data-importer/pkg/common
 kubevirt.io/containerized-data-importer/pkg/util/cert/fetcher
 # kubevirt.io/containerized-data-importer-api v1.57.0-alpha1
@@ -1207,7 +1207,7 @@ kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/resources
 # kubevirt.io/controller-lifecycle-operator-sdk/api v0.0.0-20220329064328-f3cc58c6ed90 => kubevirt.io/controller-lifecycle-operator-sdk/api v0.0.0-20220329064328-f3cc58c6ed90
 ## explicit; go 1.17
 kubevirt.io/controller-lifecycle-operator-sdk/api
-# kubevirt.io/kubevirt v1.0.0
+# kubevirt.io/kubevirt v1.0.1
 ## explicit; go 1.19
 kubevirt.io/kubevirt/pkg/apimachinery/patch
 kubevirt.io/kubevirt/pkg/certificates/bootstrap
@@ -1350,7 +1350,7 @@ sigs.k8s.io/yaml
 # github.com/operator-framework/operator-lifecycle-manager => github.com/operator-framework/operator-lifecycle-manager v0.0.0-20190128024246-5eb7ae5bdb7a
 # k8s.io/api => k8s.io/api v0.26.3
 # k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.26.3
-# k8s.io/apimachinery => k8s.io/apimachinery v0.26.1
+# k8s.io/apimachinery => k8s.io/apimachinery v0.26.4
 # k8s.io/apiserver => k8s.io/apiserver v0.26.3
 # k8s.io/cli-runtime => k8s.io/cli-runtime v0.26.3
 # k8s.io/client-go => k8s.io/client-go v0.26.6
