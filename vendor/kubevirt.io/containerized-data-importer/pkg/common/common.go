@@ -19,8 +19,6 @@ const (
 
 	// CDIComponentLabel can be added to all CDI resources
 	CDIComponentLabel = "cdi.kubevirt.io"
-	// CDIControllerName is the CDI controller name
-	CDIControllerName = "cdi-controller"
 
 	// AppKubernetesPartOfLabel is the Kubernetes recommended part-of label
 	AppKubernetesPartOfLabel = "app.kubernetes.io/part-of"
@@ -31,24 +29,11 @@ const (
 	// AppKubernetesComponentLabel is the Kubernetes recommended component label
 	AppKubernetesComponentLabel = "app.kubernetes.io/component"
 
-	// PrometheusLabelKey provides the label to indicate prometheus metrics are available in the pods.
-	PrometheusLabelKey = "prometheus.cdi.kubevirt.io"
-	// PrometheusLabelValue provides the label value which shouldn't be empty to avoid a prometheus WIP issue.
-	PrometheusLabelValue = "true"
-	// PrometheusServiceName is the name of the prometheus service created by the operator.
-	PrometheusServiceName = "cdi-prometheus-metrics"
-	// KubePersistentVolumeFillingUpSuppressLabelKey is the label name that helps suppress this alert for our PVCs
-	KubePersistentVolumeFillingUpSuppressLabelKey = "alerts.k8s.io/KubePersistentVolumeFillingUp"
-	// KubePersistentVolumeFillingUpSuppressLabelValue is the label value that helps suppress this alert for our PVCs
-	KubePersistentVolumeFillingUpSuppressLabelValue = "disabled"
+	// PrometheusLabel provides the label to indicate prometheus metrics are available in the pods.
+	PrometheusLabel = "prometheus.cdi.kubevirt.io"
 
 	// UploadTargetLabel has the UID of upload target PVC
 	UploadTargetLabel = CDIComponentLabel + "/uploadTarget"
-
-	// DataImportCronLabel has the name of the DataImportCron responsible for the labeled DataSource or DataVolume
-	DataImportCronLabel = CDIComponentLabel + "/dataImportCron"
-	// DataImportCronCleanupLabel tells whether to delete the resource when its DataImportCron is deleted
-	DataImportCronCleanupLabel = DataImportCronLabel + ".cleanup"
 
 	// ImporterVolumePath provides a constant for the directory where the PV is mounted.
 	ImporterVolumePath = "/data"
@@ -74,10 +59,10 @@ const (
 	ImporterCertDir = "/certs"
 	// DefaultPullPolicy imports k8s "IfNotPresent" string for the import_controller_gingko_test and the cdi-controller executable
 	DefaultPullPolicy = string(v1.PullIfNotPresent)
-	// ImportProxyConfigMapName provides the key for getting the name of the ConfigMap in the cdi namespace containing a CA certificate bundle
+	// ImportProxyConfigMapName provides the name of the ConfigMap in the cdi namespace containing a CA certificate bundle
 	ImportProxyConfigMapName = "trusted-ca-proxy-bundle-cm"
 	// ImportProxyConfigMapKey provides the key name of the ConfigMap in the cdi namespace containing a CA certificate bundle
-	ImportProxyConfigMapKey = "ca.crt"
+	ImportProxyConfigMapKey = "ca.pem"
 	// ImporterProxyCertDir is where the configmap containing proxy certs will be mounted
 	ImporterProxyCertDir = "/proxycerts/"
 
@@ -99,10 +84,6 @@ const (
 	ImporterCertDirVar = "IMPORTER_CERT_DIR"
 	// InsecureTLSVar provides a constant to capture our env variable "INSECURE_TLS"
 	InsecureTLSVar = "INSECURE_TLS"
-	// CiphersTLSVar provides a constant to capture our env variable "TLS_CIPHERS"
-	CiphersTLSVar = "TLS_CIPHERS"
-	// MinVersionTLSVar provides a constant to capture our env variable "TLS_MIN_VERSION"
-	MinVersionTLSVar = "TLS_MIN_VERSION"
 	// ImporterDiskID provides a constant to capture our env variable "IMPORTER_DISK_ID"
 	ImporterDiskID = "IMPORTER_DISK_ID"
 	// ImporterUUID provides a constant to capture our env variable "IMPORTER_UUID"
@@ -123,22 +104,18 @@ const (
 	ImporterFinalCheckpoint = "IMPORTER_FINAL_CHECKPOINT"
 	// Preallocation provides a constant to capture out env variable "PREALLOCATION"
 	Preallocation = "PREALLOCATION"
-	// ImportProxyHTTP provides a constant to capture our env variable "http_proxy"
-	ImportProxyHTTP = "http_proxy"
-	// ImportProxyHTTPS provides a constant to capture our env variable "https_proxy"
-	ImportProxyHTTPS = "https_proxy"
-	// ImportProxyNoProxy provides a constant to capture our env variable "no_proxy"
-	ImportProxyNoProxy = "no_proxy"
+	// ImportProxyHTTP provides a constant to capture our env variable "HTTP_PROXY"
+	ImportProxyHTTP = "HTTP_PROXY"
+	// ImportProxyHTTPS provides a constant to capture our env variable "HTTPS_PROXY"
+	ImportProxyHTTPS = "HTTPS_PROXY"
+	// ImportProxyNoProxy provides a constant to capture our env variable "NO_PROXY"
+	ImportProxyNoProxy = "NO_PROXY"
 	// ImporterProxyCertDirVar provides a constant to capture our env variable "IMPORTER_PROXY_CERT_DIR"
 	ImporterProxyCertDirVar = "IMPORTER_PROXY_CERT_DIR"
 	// InstallerPartOfLabel provides a constant to capture our env variable "INSTALLER_PART_OF_LABEL"
 	InstallerPartOfLabel = "INSTALLER_PART_OF_LABEL"
 	// InstallerVersionLabel provides a constant to capture our env variable "INSTALLER_VERSION_LABEL"
 	InstallerVersionLabel = "INSTALLER_VERSION_LABEL"
-	// ImporterExtraHeader provides a constant to include extra HTTP headers, as the prefix to a format string
-	ImporterExtraHeader = "IMPORTER_EXTRA_HEADER_"
-	// ImporterSecretExtraHeadersDir is where the secrets containing extra HTTP headers will be mounted
-	ImporterSecretExtraHeadersDir = "/extraheaders"
 
 	// CloningLabelValue provides a constant to use as a label value for pod affinity (controller pkg only)
 	CloningLabelValue = "host-assisted-cloning"
@@ -159,11 +136,6 @@ const (
 	// SmartClonerCDILabel is the label applied to resources created by the smart-clone controller
 	SmartClonerCDILabel = "cdi-smart-clone"
 
-	// CloneFromSnapshotFallbackPVCCDILabel is the label applied to the temp host assisted PVC used for fallback in cloning from volumesnapshot
-	CloneFromSnapshotFallbackPVCCDILabel = "cdi-clone-from-snapshot-source-host-assisted-fallback-pvc"
-
-	// UploadPodName (controller pkg only)
-	UploadPodName = "cdi-upload"
 	// UploadServerCDILabel is the label applied to upload server resources
 	UploadServerCDILabel = "cdi-upload-server"
 	// UploadServerPodname is name of the upload server pod container
@@ -217,9 +189,6 @@ const (
 	// ControllerServiceAccountName is the name of the CDI controller service account
 	ControllerServiceAccountName = "cdi-sa"
 
-	// CronJobServiceAccountName is the name of the CDI cron job service account
-	CronJobServiceAccountName = "cdi-cronjob"
-
 	// VddkConfigMap is the name of the ConfigMap with a reference to the VDDK image
 	VddkConfigMap = "v2v-vmware"
 	// VddkConfigDataKey is the name of the ConfigMap key of the VDDK image reference
@@ -242,12 +211,6 @@ const (
 	// UploadPathAsync is the path to POST CDI uploads in async mode
 	UploadPathAsync = "/v1beta1/upload-async"
 
-	// UploadArchivePath is the path to POST CDI archive uploads
-	UploadArchivePath = "/v1beta1/upload-archive"
-
-	// UploadArchiveAlphaPath is the path to POST CDI alpha archive uploads
-	UploadArchiveAlphaPath = "/v1alpha1/upload-archive"
-
 	// UploadFormSync is the path to POST CDI uploads as form data
 	UploadFormSync = "/v1beta1/upload-form"
 
@@ -256,18 +219,6 @@ const (
 
 	// PreallocationApplied is a string inserted into importer's/uploader's exit message
 	PreallocationApplied = "Preallocation applied"
-
-	// SecretHeader is the key in a secret containing a sensitive extra header for HTTP data sources
-	SecretHeader = "secretHeader"
-
-	// UnusualRestartCountThreshold is the number of pod restarts that we consider unusual and would like to alert about
-	UnusualRestartCountThreshold = 3
-
-	// GenericError is a generic error string
-	GenericError = "Error"
-
-	// CDIControllerLeaderElectionHelperName is the name of the configmap that is used as a helper for controller leader election
-	CDIControllerLeaderElectionHelperName = "cdi-controller-leader-election-helper"
 )
 
 // ProxyPaths are all supported paths
@@ -286,12 +237,6 @@ var SyncUploadPaths = []string{
 var AsyncUploadPaths = []string{
 	UploadPathAsync,
 	"/v1alpha1/upload-async",
-}
-
-// ArchiveUploadPaths are paths to POST CDI uploads of archive
-var ArchiveUploadPaths = []string{
-	UploadArchivePath,
-	UploadArchiveAlphaPath,
 }
 
 // SyncUploadFormPaths are paths to POST CDI uploads as form data

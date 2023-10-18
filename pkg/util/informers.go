@@ -94,14 +94,20 @@ func GetResourceQuotaInformer(virtCli kubecli.KubevirtClient) cache.SharedIndexI
 	listWatcher := NewListWatchFromClient(virtCli.CoreV1().RESTClient(), "resourcequotas", k8sv1.NamespaceAll, fields.Everything(), labels.Everything())
 	return cache.NewSharedIndexInformer(listWatcher, &v1.ResourceQuota{}, 1*time.Hour, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 }
+
 func GetlimitRangeInformer(virtCli kubecli.KubevirtClient) cache.SharedIndexInformer {
 	listWatcher := NewListWatchFromClient(virtCli.CoreV1().RESTClient(), "limitranges", k8sv1.NamespaceAll, fields.Everything(), labels.Everything())
 	return cache.NewSharedIndexInformer(listWatcher, &v1.LimitRange{}, 1*time.Hour, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 }
 
-func PersistentVolumeClaim(virtCli kubecli.KubevirtClient) cache.SharedIndexInformer {
+func GetPersistentVolumeClaimInformer(virtCli kubecli.KubevirtClient) cache.SharedIndexInformer {
 	lw := cache.NewListWatchFromClient(virtCli.CoreV1().RESTClient(), "persistentvolumeclaims", k8sv1.NamespaceAll, fields.Everything())
 	return cache.NewSharedIndexInformer(lw, &v1.PersistentVolumeClaim{}, 1*time.Hour, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+}
+
+func GetNamespaceInformer(virtCli kubecli.KubevirtClient) cache.SharedIndexInformer {
+	listWatcher := NewListWatchFromClient(virtCli.CoreV1().RESTClient(), "namespaces", k8sv1.NamespaceAll, fields.Everything(), labels.Everything())
+	return cache.NewSharedIndexInformer(listWatcher, &v1.Namespace{}, 1*time.Hour, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 }
 
 // NewListWatchFromClient creates a new ListWatch from the specified client, resource, kubevirtNamespace and field selector.

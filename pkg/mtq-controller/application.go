@@ -61,6 +61,7 @@ type MtqControllerApp struct {
 	resourceQuotaInformer cache.SharedIndexInformer
 	vmmrqInformer         cache.SharedIndexInformer
 	vmiInformer           cache.SharedIndexInformer
+	nsInformer            cache.SharedIndexInformer
 	kubeVirtInformer      cache.SharedIndexInformer
 	crdInformer           cache.SharedIndexInformer
 	pvcInformer           cache.SharedIndexInformer
@@ -111,7 +112,8 @@ func Execute() {
 	app.migrationInformer = util.GetMigrationInformer(virtCli)
 	app.kubeVirtInformer = util.KubeVirtInformer(virtCli)
 	app.crdInformer = util.CRDInformer(virtCli)
-	app.pvcInformer = util.PersistentVolumeClaim(virtCli)
+	app.pvcInformer = util.GetPersistentVolumeClaimInformer(virtCli)
+	app.nsInformer = util.GetNamespaceInformer(virtCli)
 	app.initVmmrqController()
 	app.Run()
 
@@ -150,6 +152,7 @@ func (mca *MtqControllerApp) initVmmrqController() {
 		mca.pvcInformer,
 		mca.resourceQuotaInformer,
 		mca.vmmrqInformer,
+		mca.nsInformer,
 	)
 }
 
@@ -243,6 +246,7 @@ func (mca *MtqControllerApp) onStartedLeading() func(ctx context.Context) {
 		go mca.limitRangeInformer.Run(stop)
 		go mca.vmmrqInformer.Run(stop)
 		go mca.resourceQuotaInformer.Run(stop)
+		go mca.nsInformer.Run(stop)
 
 		if !cache.WaitForCacheSync(stop,
 			mca.migrationInformer.HasSynced,
@@ -253,6 +257,7 @@ func (mca *MtqControllerApp) onStartedLeading() func(ctx context.Context) {
 			mca.limitRangeInformer.HasSynced,
 			mca.resourceQuotaInformer.HasSynced,
 			mca.vmmrqInformer.HasSynced,
+			mca.nsInformer.HasSynced,
 		) {
 			log.Log.Warningf("failed to wait for caches to sync")
 		}
