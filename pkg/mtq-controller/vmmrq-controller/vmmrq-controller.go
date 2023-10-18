@@ -72,6 +72,7 @@ type VmmrqController struct {
 	kubeVirtInformer                             cache.SharedIndexInformer
 	crdInformer                                  cache.SharedIndexInformer
 	pvcInformer                                  cache.SharedIndexInformer
+	nsInformer                                   cache.SharedIndexInformer
 	clusterConfig                                *virtconfig.ClusterConfig
 	virtualMachineMigrationResourceQuotaInformer cache.SharedIndexInformer
 	migrationQueue                               workqueue.RateLimitingInterface
@@ -94,6 +95,7 @@ func NewVmmrqController(virtCli kubecli.KubevirtClient,
 	pvcInformer cache.SharedIndexInformer,
 	resourceQuotaInformer cache.SharedIndexInformer,
 	vmmrqInformer cache.SharedIndexInformer,
+	nsInformer cache.SharedIndexInformer,
 ) *VmmrqController {
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartRecordingToSink(&v14.EventSinkImpl{Interface: virtCli.CoreV1().Events(v1.NamespaceAll)})
@@ -111,6 +113,7 @@ func NewVmmrqController(virtCli kubecli.KubevirtClient,
 		kubeVirtInformer:      kubeVirtInformer,
 		crdInformer:           crdInformer,
 		pvcInformer:           pvcInformer,
+		nsInformer:            nsInformer,
 		serverBundleFetcher:   &fetcher.ConfigMapCertBundleFetcher{Name: "mtq-lock-signer-bundle", Client: virtCli.CoreV1().ConfigMaps(mtqNs)},
 		migrationQueue:        workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "migration-queue"),
 		internalLock:          &sync.Mutex{},
@@ -548,6 +551,8 @@ func (ctrl *VmmrqController) Run(threadiness int, stop <-chan struct{}) error {
 		clusterConfig,
 		107,
 		fakeVal,
+		ctrl.resourceQuotaInformer.GetStore(),
+		ctrl.nsInformer.GetStore(),
 	)
 	log.Log.Info("Starting Vmmrq controller")
 	defer log.Log.Info("Shutting down Vmmrq controller")
