@@ -298,6 +298,7 @@ func (ctrl *VmmrqController) execute(key string) (error, enqueueState) {
 	var migration *v1alpha1.VirtualMachineInstanceMigration
 	var vmi *v1alpha1.VirtualMachineInstance
 	isBlockedMigration := false
+	reachedMaxParallelMigrations := false
 
 	if migrationExists {
 		migration = migrationObj.(*v1alpha1.VirtualMachineInstanceMigration)
@@ -312,10 +313,10 @@ func (ctrl *VmmrqController) execute(key string) (error, enqueueState) {
 		if err != nil {
 			return err, BackOff
 		}
-	}
-	reachedMaxParallelMigrations, err := ctrl.reachedMaxParallelMigration(vmi.Status.NodeName)
-	if err != nil {
-		return err, Immediate
+		reachedMaxParallelMigrations, err = ctrl.reachedMaxParallelMigration(vmi.Status.NodeName)
+		if err != nil {
+			return err, Immediate
+		}
 	}
 
 	finalEnqueueState := Forget
