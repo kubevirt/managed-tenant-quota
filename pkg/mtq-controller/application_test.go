@@ -55,7 +55,7 @@ var _ = Describe("Application", func() {
 		})
 
 		Context("with closed channel", func() {
-			It("should return 200 and that it is the leader", func() {
+			It("should return 200 and that it is the leader.", func() {
 				close(app.readyChan)
 				request.URL, _ = url.Parse("/leader")
 				handler.ServeHTTP(recorder, request)
