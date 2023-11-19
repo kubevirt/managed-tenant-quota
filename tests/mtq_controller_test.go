@@ -13,6 +13,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/testsuite"
 	mtq_controller "kubevirt.io/managed-tenant-quota/pkg/mtq-controller/vmmrq-controller"
@@ -63,7 +64,7 @@ var _ = Describe("Blocked migration", func() {
 
 			By("Starting the Migration")
 			migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-			migration = tests.RunMigration(f.VirtClient, migration)
+			migration = libmigration.RunMigration(f.VirtClient, migration)
 			Eventually(func() error {
 				if migrationHasRejectedByResourceQuotaCond(f.VirtClient, migration) {
 					return nil
@@ -122,7 +123,7 @@ var _ = Describe("Blocked migration", func() {
 
 			By("Starting the Migration")
 			migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-			migration = tests.RunMigration(f.VirtClient, migration)
+			migration = libmigration.RunMigration(f.VirtClient, migration)
 			Eventually(func() error {
 				if migrationHasRejectedByResourceQuotaCond(f.VirtClient, migration) {
 					return nil
@@ -190,7 +191,7 @@ var _ = Describe("Blocked migration", func() {
 			By("Starting the Migration")
 			for _, vmi := range vmiList {
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				migration = tests.RunMigration(f.VirtClient, migration)
+				migration = libmigration.RunMigration(f.VirtClient, migration)
 				Eventually(func() error {
 					if migrationHasRejectedByResourceQuotaCond(f.VirtClient, migration) {
 						return nil
@@ -257,7 +258,7 @@ var _ = Describe("Blocked migration", func() {
 
 			By("Starting the Migration")
 			migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-			migration = tests.RunMigration(f.VirtClient, migration)
+			migration = libmigration.RunMigration(f.VirtClient, migration)
 			Eventually(func() error {
 				if migrationHasRejectedByResourceQuotaCond(f.VirtClient, migration) {
 					return nil
@@ -326,7 +327,7 @@ var _ = Describe("Blocked migration", func() {
 
 			By("Starting the Migration")
 			migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-			migration = tests.RunMigration(f.VirtClient, migration)
+			migration = libmigration.RunMigration(f.VirtClient, migration)
 			Eventually(func() error {
 				if migrationHasRejectedByResourceQuotaCond(f.VirtClient, migration) {
 					return nil
@@ -398,7 +399,7 @@ var _ = Describe("Blocked migration", func() {
 			By("Starting the Migrations")
 			for _, ns := range namespaces {
 				migrationMap[ns] = tests.NewRandomMigration(vmiMap[ns].Name, vmiMap[ns].Namespace)
-				migrationMap[ns] = tests.RunMigration(f.VirtClient, migrationMap[ns])
+				migrationMap[ns] = libmigration.RunMigration(f.VirtClient, migrationMap[ns])
 				Eventually(func() error {
 					if migrationHasRejectedByResourceQuotaCond(f.VirtClient, migrationMap[ns]) {
 						return nil
@@ -489,7 +490,7 @@ var _ = Describe("Blocked migration", func() {
 		By("Making sure pod doesn't get additional resources in 5 increasements")
 		for range []int{1, 2, 3, 4, 5} {
 			migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-			migration = tests.RunMigrationAndExpectCompletion(f.VirtClient, migration, 240)
+			migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(f.VirtClient, migration)
 		}
 		// Call the cancel function to stop the abusing process
 		cancel()
@@ -555,7 +556,7 @@ var _ = Describe("Blocked migration", func() {
 		Expect(err).To(Not(HaveOccurred()))
 
 		migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-		migration = tests.RunMigrationAndExpectCompletion(f.VirtClient, migration, 240)
+		migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(f.VirtClient, migration)
 
 	})
 

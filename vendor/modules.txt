@@ -1,3 +1,6 @@
+# github.com/VividCortex/ewma v1.2.0
+## explicit; go 1.12
+github.com/VividCortex/ewma
 # github.com/appscode/jsonpatch v1.0.1
 ## explicit
 github.com/appscode/jsonpatch
@@ -13,6 +16,10 @@ github.com/blang/semver/v4
 # github.com/cespare/xxhash/v2 v2.1.2
 ## explicit; go 1.11
 github.com/cespare/xxhash/v2
+# github.com/cheggaaa/pb/v3 v3.1.0
+## explicit; go 1.12
+github.com/cheggaaa/pb/v3
+github.com/cheggaaa/pb/v3/termutil
 # github.com/coreos/go-semver v0.3.0
 ## explicit
 github.com/coreos/go-semver/semver
@@ -39,6 +46,7 @@ github.com/evanphx/json-patch
 github.com/evanphx/json-patch/v5
 # github.com/fatih/color v1.13.0
 ## explicit; go 1.13
+github.com/fatih/color
 # github.com/fsnotify/fsnotify v1.6.0
 ## explicit; go 1.16
 github.com/fsnotify/fsnotify
@@ -154,8 +162,13 @@ github.com/mailru/easyjson/jlexer
 github.com/mailru/easyjson/jwriter
 # github.com/mattn/go-colorable v0.1.12
 ## explicit; go 1.13
+github.com/mattn/go-colorable
 # github.com/mattn/go-isatty v0.0.14
 ## explicit; go 1.12
+github.com/mattn/go-isatty
+# github.com/mattn/go-runewidth v0.0.13
+## explicit; go 1.9
+github.com/mattn/go-runewidth
 # github.com/matttproud/golang_protobuf_extensions v1.0.2
 ## explicit; go 1.9
 github.com/matttproud/golang_protobuf_extensions/pbutil
@@ -200,6 +213,8 @@ github.com/onsi/ginkgo/v2/types
 ## explicit; go 1.18
 github.com/onsi/gomega
 github.com/onsi/gomega/format
+github.com/onsi/gomega/gstruct
+github.com/onsi/gomega/gstruct/errors
 github.com/onsi/gomega/internal
 github.com/onsi/gomega/internal/gutil
 github.com/onsi/gomega/matchers
@@ -318,6 +333,9 @@ github.com/pborman/uuid
 # github.com/pkg/errors v0.9.1
 ## explicit
 github.com/pkg/errors
+# github.com/povsister/scp v0.0.0-20210427074412-33febfd9f13e
+## explicit; go 1.15
+github.com/povsister/scp
 # github.com/prometheus/client_golang v1.14.0
 ## explicit; go 1.17
 github.com/prometheus/client_golang/api
@@ -326,8 +344,8 @@ github.com/prometheus/client_golang/prometheus
 github.com/prometheus/client_golang/prometheus/collectors
 github.com/prometheus/client_golang/prometheus/internal
 github.com/prometheus/client_golang/prometheus/promhttp
-# github.com/prometheus/client_model v0.3.0
-## explicit; go 1.9
+# github.com/prometheus/client_model v0.4.0
+## explicit; go 1.18
 github.com/prometheus/client_model/go
 # github.com/prometheus/common v0.37.0
 ## explicit; go 1.16
@@ -339,6 +357,9 @@ github.com/prometheus/common/model
 github.com/prometheus/procfs
 github.com/prometheus/procfs/internal/fs
 github.com/prometheus/procfs/internal/util
+# github.com/rivo/uniseg v0.2.0
+## explicit; go 1.12
+github.com/rivo/uniseg
 # github.com/robfig/cron v1.2.0
 ## explicit
 github.com/robfig/cron
@@ -375,8 +396,11 @@ golang.org/x/crypto/curve25519/internal/field
 golang.org/x/crypto/internal/alias
 golang.org/x/crypto/internal/poly1305
 golang.org/x/crypto/ssh
+golang.org/x/crypto/ssh/agent
 golang.org/x/crypto/ssh/internal/bcrypt_pbkdf
-# golang.org/x/mod v0.10.0
+golang.org/x/crypto/ssh/knownhosts
+golang.org/x/crypto/ssh/terminal
+# golang.org/x/mod v0.12.0
 ## explicit; go 1.17
 golang.org/x/mod/internal/lazyregexp
 golang.org/x/mod/module
@@ -400,8 +424,8 @@ golang.org/x/net/trace
 ## explicit; go 1.11
 golang.org/x/oauth2
 golang.org/x/oauth2/internal
-# golang.org/x/sync v0.2.0
-## explicit
+# golang.org/x/sync v0.3.0
+## explicit; go 1.17
 golang.org/x/sync/singleflight
 # golang.org/x/sys v0.13.0
 ## explicit; go 1.17
@@ -438,7 +462,7 @@ golang.org/x/text/unicode/norm
 # golang.org/x/time v0.3.0
 ## explicit
 golang.org/x/time/rate
-# golang.org/x/tools v0.9.1
+# golang.org/x/tools v0.13.0
 ## explicit; go 1.18
 golang.org/x/tools/go/ast/astutil
 golang.org/x/tools/go/ast/inspector
@@ -447,6 +471,7 @@ golang.org/x/tools/internal/event
 golang.org/x/tools/internal/event/core
 golang.org/x/tools/internal/event/keys
 golang.org/x/tools/internal/event/label
+golang.org/x/tools/internal/event/tag
 golang.org/x/tools/internal/fastwalk
 golang.org/x/tools/internal/gocommand
 golang.org/x/tools/internal/gopathwalk
@@ -517,7 +542,7 @@ google.golang.org/grpc/serviceconfig
 google.golang.org/grpc/stats
 google.golang.org/grpc/status
 google.golang.org/grpc/tap
-# google.golang.org/protobuf v1.28.1
+# google.golang.org/protobuf v1.30.0
 ## explicit; go 1.11
 google.golang.org/protobuf/encoding/protojson
 google.golang.org/protobuf/encoding/prototext
@@ -551,6 +576,9 @@ google.golang.org/protobuf/types/descriptorpb
 google.golang.org/protobuf/types/known/anypb
 google.golang.org/protobuf/types/known/durationpb
 google.golang.org/protobuf/types/known/timestamppb
+# gopkg.in/cheggaaa/pb.v1 v1.0.28
+## explicit
+gopkg.in/cheggaaa/pb.v1
 # gopkg.in/inf.v0 v0.9.1
 ## explicit
 gopkg.in/inf.v0
@@ -1111,6 +1139,7 @@ k8s.io/kube-openapi/pkg/validation/spec
 # k8s.io/kubectl v0.0.0 => k8s.io/kubectl v0.26.3
 ## explicit; go 1.19
 k8s.io/kubectl/pkg/cmd/util/podcmd
+k8s.io/kubectl/pkg/util
 # k8s.io/kubernetes v1.26.3
 ## explicit; go 1.19
 k8s.io/kubernetes/pkg/apis/apps
@@ -1137,7 +1166,7 @@ k8s.io/utils/net
 k8s.io/utils/pointer
 k8s.io/utils/strings/slices
 k8s.io/utils/trace
-# kubevirt.io/api v1.0.1
+# kubevirt.io/api v1.1.0
 ## explicit; go 1.17
 kubevirt.io/api/clone
 kubevirt.io/api/clone/v1alpha1
@@ -1155,7 +1184,7 @@ kubevirt.io/api/pool
 kubevirt.io/api/pool/v1alpha1
 kubevirt.io/api/snapshot
 kubevirt.io/api/snapshot/v1alpha1
-# kubevirt.io/client-go v1.0.1
+# kubevirt.io/client-go v1.1.0
 ## explicit; go 1.17
 kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned
 kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/scheme
@@ -1165,15 +1194,24 @@ kubevirt.io/client-go/generated/external-snapshotter/clientset/versioned
 kubevirt.io/client-go/generated/external-snapshotter/clientset/versioned/scheme
 kubevirt.io/client-go/generated/external-snapshotter/clientset/versioned/typed/volumesnapshot/v1
 kubevirt.io/client-go/generated/kubevirt/clientset/versioned
+kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake
 kubevirt.io/client-go/generated/kubevirt/clientset/versioned/scheme
 kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/clone/v1alpha1
+kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/clone/v1alpha1/fake
 kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/export/v1alpha1
+kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/export/v1alpha1/fake
 kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/instancetype/v1alpha1
+kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/instancetype/v1alpha1/fake
 kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/instancetype/v1alpha2
+kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/instancetype/v1alpha2/fake
 kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/instancetype/v1beta1
+kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/instancetype/v1beta1/fake
 kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/migrations/v1alpha1
+kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/migrations/v1alpha1/fake
 kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/pool/v1alpha1
+kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/pool/v1alpha1/fake
 kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/snapshot/v1alpha1
+kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/snapshot/v1alpha1/fake
 kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned
 kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned/scheme
 kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned/typed/k8s.cni.cncf.io/v1
@@ -1205,7 +1243,7 @@ kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/resources
 # kubevirt.io/controller-lifecycle-operator-sdk/api v0.0.0-20220329064328-f3cc58c6ed90 => kubevirt.io/controller-lifecycle-operator-sdk/api v0.0.0-20220329064328-f3cc58c6ed90
 ## explicit; go 1.17
 kubevirt.io/controller-lifecycle-operator-sdk/api
-# kubevirt.io/kubevirt v1.0.1
+# kubevirt.io/kubevirt v1.1.0
 ## explicit; go 1.19
 kubevirt.io/kubevirt/pkg/apimachinery/patch
 kubevirt.io/kubevirt/pkg/certificates/bootstrap
@@ -1228,6 +1266,7 @@ kubevirt.io/kubevirt/pkg/host-disk
 kubevirt.io/kubevirt/pkg/instancetype
 kubevirt.io/kubevirt/pkg/network/istio
 kubevirt.io/kubevirt/pkg/network/namescheme
+kubevirt.io/kubevirt/pkg/network/netbinding
 kubevirt.io/kubevirt/pkg/network/sriov
 kubevirt.io/kubevirt/pkg/network/vmispec
 kubevirt.io/kubevirt/pkg/pointer
@@ -1252,10 +1291,40 @@ kubevirt.io/kubevirt/pkg/virt-controller/watch/topology
 kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api
 kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components
 kubevirt.io/kubevirt/pkg/virt-operator/util
+kubevirt.io/kubevirt/pkg/virtctl
+kubevirt.io/kubevirt/pkg/virtctl/configuration
+kubevirt.io/kubevirt/pkg/virtctl/console
+kubevirt.io/kubevirt/pkg/virtctl/create
+kubevirt.io/kubevirt/pkg/virtctl/create/clone
+kubevirt.io/kubevirt/pkg/virtctl/create/instancetype
+kubevirt.io/kubevirt/pkg/virtctl/create/params
+kubevirt.io/kubevirt/pkg/virtctl/create/preference
+kubevirt.io/kubevirt/pkg/virtctl/create/vm
+kubevirt.io/kubevirt/pkg/virtctl/credentials
+kubevirt.io/kubevirt/pkg/virtctl/credentials/add-key
+kubevirt.io/kubevirt/pkg/virtctl/credentials/common
+kubevirt.io/kubevirt/pkg/virtctl/credentials/remove-key
+kubevirt.io/kubevirt/pkg/virtctl/credentials/set-password
 kubevirt.io/kubevirt/pkg/virtctl/expose
+kubevirt.io/kubevirt/pkg/virtctl/guestfs
+kubevirt.io/kubevirt/pkg/virtctl/imageupload
+kubevirt.io/kubevirt/pkg/virtctl/memorydump
+kubevirt.io/kubevirt/pkg/virtctl/pause
+kubevirt.io/kubevirt/pkg/virtctl/portforward
+kubevirt.io/kubevirt/pkg/virtctl/scp
+kubevirt.io/kubevirt/pkg/virtctl/softreboot
+kubevirt.io/kubevirt/pkg/virtctl/ssh
 kubevirt.io/kubevirt/pkg/virtctl/templates
+kubevirt.io/kubevirt/pkg/virtctl/usbredir
+kubevirt.io/kubevirt/pkg/virtctl/utils
+kubevirt.io/kubevirt/pkg/virtctl/version
+kubevirt.io/kubevirt/pkg/virtctl/vm
+kubevirt.io/kubevirt/pkg/virtctl/vmexport
+kubevirt.io/kubevirt/pkg/virtctl/vnc
+kubevirt.io/kubevirt/pkg/virtctl/vnc/screenshot
 kubevirt.io/kubevirt/pkg/virtiofs
 kubevirt.io/kubevirt/tests
+kubevirt.io/kubevirt/tests/clientcmd
 kubevirt.io/kubevirt/tests/console
 kubevirt.io/kubevirt/tests/containerdisk
 kubevirt.io/kubevirt/tests/errorhandling
@@ -1267,6 +1336,8 @@ kubevirt.io/kubevirt/tests/framework/kubevirt
 kubevirt.io/kubevirt/tests/framework/matcher
 kubevirt.io/kubevirt/tests/framework/matcher/helper
 kubevirt.io/kubevirt/tests/libdv
+kubevirt.io/kubevirt/tests/libinfra
+kubevirt.io/kubevirt/tests/libmigration
 kubevirt.io/kubevirt/tests/libnet
 kubevirt.io/kubevirt/tests/libnet/cluster
 kubevirt.io/kubevirt/tests/libnode
