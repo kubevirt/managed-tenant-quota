@@ -14,6 +14,7 @@ import (
 	"kubevirt.io/containerized-data-importer/pkg/util/cert/fetcher"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/managed-tenant-quota/pkg/mtq-lock-server/validation"
 	validating_webhook_lock "kubevirt.io/managed-tenant-quota/pkg/validating-webhook-lock"
@@ -216,6 +217,6 @@ var _ = Describe("Blocked migration", func() {
 		}, 20*time.Second, 1*time.Second).ShouldNot(HaveOccurred(), "should be able to lock namespaced")
 
 		migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-		tests.RunMigrationAndExpectCompletion(f.VirtClient, migration, 240)
+		libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(f.VirtClient, migration)
 	})
 })
