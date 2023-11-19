@@ -61,7 +61,7 @@ func (tvlv *TargetVirtLauncherValidator) ServeHTTP(w http.ResponseWriter, r *htt
 
 }
 
-// parseRequest extracts an AdmissionReview from an http.Request if possible
+// parseRequest extracts an AdmissionReview from an http.Request if possible.
 func parseRequest(r http.Request) (*admissionv1.AdmissionReview, error) {
 	if r.Header.Get("Content-Type") != "application/json" {
 		return nil, fmt.Errorf("Content-Type: %q should be %q",
