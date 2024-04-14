@@ -17,7 +17,7 @@ new virt-launcher pod before terminating the old one.
 This differs from how standard pods are moved and can result in unexpected
 resource utilization from the user's perspective. This poses a challenge
 where the hidden cost of live migration can prevent live migrating a VM for
-reasons not reflected to the VM creator / namespace owner.
+reasons not reflected to the VM creator / namespace owner
 
 
 ### KubeVirt Upgrade:
