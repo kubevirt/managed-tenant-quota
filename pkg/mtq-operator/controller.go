@@ -11,6 +11,7 @@ import (
 	mtqcerts "kubevirt.io/managed-tenant-quota/pkg/mtq-operator/resources/cert"
 	"kubevirt.io/managed-tenant-quota/pkg/mtq-operator/resources/utils"
 	"kubevirt.io/managed-tenant-quota/staging/src/kubevirt.io/managed-tenant-quota-api/pkg/apis/core/v1alpha1"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -90,13 +91,14 @@ func newReconciler(mgr manager.Manager) (*ReconcileMTQ, error) {
 		client:         restClient,
 		uncachedClient: uncachedClient,
 		scheme:         scheme,
+		getCache:       mgr.GetCache,
 		recorder:       recorder,
 		namespace:      namespace,
 		clusterArgs:    clusterArgs,
 		namespacedArgs: &namespacedArgs,
 	}
 	callbackDispatcher := callbacks.NewCallbackDispatcher(log, restClient, uncachedClient, scheme, namespace)
-	r.reconciler = sdkr.NewReconciler(r, log, restClient, callbackDispatcher, scheme, createVersionLabel, updateVersionLabel, LastAppliedConfigAnnotation, certPollInterval, finalizerName, true, recorder)
+	r.reconciler = sdkr.NewReconciler(r, log, restClient, callbackDispatcher, scheme, mgr.GetCache, createVersionLabel, updateVersionLabel, LastAppliedConfigAnnotation, certPollInterval, finalizerName, true, recorder)
 
 	r.registerHooks()
 	return r, nil
@@ -113,6 +115,7 @@ type ReconcileMTQ struct {
 	// use this for getting any resources not in the install namespace or cluster scope
 	uncachedClient client.Client
 	scheme         *runtime.Scheme
+	getCache       func() cache.Cache
 	recorder       record.EventRecorder
 	controller     controller.Controller
 

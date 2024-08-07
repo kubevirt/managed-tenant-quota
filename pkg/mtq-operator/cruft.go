@@ -1,18 +1,18 @@
 package mtq_operator
 
 import (
+	"context"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"kubevirt.io/managed-tenant-quota/pkg/mtq-operator/resources/utils"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 func (r *ReconcileMTQ) watchMTQCRD() error {
-	if err := r.controller.Watch(&source.Kind{Type: &extv1.CustomResourceDefinition{}}, handler.EnqueueRequestsFromMapFunc(
-		func(obj client.Object) []reconcile.Request {
+	if err := r.controller.Watch(source.Kind(r.getCache(), &extv1.CustomResourceDefinition{}, handler.TypedEnqueueRequestsFromMapFunc[*extv1.CustomResourceDefinition](
+		func(ctx context.Context, obj *extv1.CustomResourceDefinition) []reconcile.Request {
 			name := obj.GetName()
 			if name != "mtqs.mtq.kubevirt.io" {
 				return nil
@@ -30,7 +30,7 @@ func (r *ReconcileMTQ) watchMTQCRD() error {
 				},
 			}
 		},
-	)); err != nil {
+	))); err != nil {
 		return err
 	}
 

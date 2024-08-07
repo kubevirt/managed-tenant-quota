@@ -153,7 +153,7 @@ func (c *command) run(args []string) error {
 }
 
 func calcMemoryDumpExpectedSize(vmName, namespace string, virtClient kubecli.KubevirtClient) (*resource.Quantity, error) {
-	vmi, err := virtClient.VirtualMachineInstance(namespace).Get(context.Background(), vmName, &metav1.GetOptions{})
+	vmi, err := virtClient.VirtualMachineInstance(namespace).Get(context.Background(), vmName, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -187,7 +187,7 @@ func generatePVC(size *resource.Quantity, claimName, namespace, storageClass, ac
 			Namespace: namespace,
 		},
 		Spec: k8sv1.PersistentVolumeClaimSpec{
-			Resources: k8sv1.ResourceRequirements{
+			Resources: k8sv1.VolumeResourceRequirements{
 				Requests: k8sv1.ResourceList{
 					k8sv1.ResourceStorage: *size,
 				},
@@ -228,7 +228,7 @@ func checkNoExistingPVC(namespace, claimName string, virtClient kubecli.Kubevirt
 }
 
 func checkNoAssociatedMemoryDump(namespace, vmName string, virtClient kubecli.KubevirtClient) error {
-	vm, err := virtClient.VirtualMachine(namespace).Get(context.Background(), vmName, &metav1.GetOptions{})
+	vm, err := virtClient.VirtualMachine(namespace).Get(context.Background(), vmName, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -338,6 +338,9 @@ func downloadMemoryDump(namespace, vmName string, virtClient kubecli.KubevirtCli
 		ExportSource: exportSource,
 		PortForward:  portForward,
 		LocalPort:    localPort,
+		// Using 2 as retry count to help mitigate a bug that might happen when creating the
+		// exporter pod just after the hotplug pod is deleted: https://issues.redhat.com/browse/CNV-39141
+		DownloadRetries: 2,
 	}
 
 	if portForward {
@@ -360,7 +363,7 @@ func downloadMemoryDump(namespace, vmName string, virtClient kubecli.KubevirtCli
 func waitForMemoryDump(virtClient kubecli.KubevirtClient, namespace, vmName string, interval, timeout time.Duration) (string, error) {
 	var claimName string
 	err := wait.PollImmediate(interval, timeout, func() (bool, error) {
-		vm, err := virtClient.VirtualMachine(namespace).Get(context.Background(), vmName, &metav1.GetOptions{})
+		vm, err := virtClient.VirtualMachine(namespace).Get(context.Background(), vmName, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}

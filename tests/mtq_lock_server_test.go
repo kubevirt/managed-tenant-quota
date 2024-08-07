@@ -13,9 +13,9 @@ import (
 	kv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/containerized-data-importer/pkg/util/cert/fetcher"
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/libmigration"
-	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/managed-tenant-quota/pkg/mtq-lock-server/validation"
 	validating_webhook_lock "kubevirt.io/managed-tenant-quota/pkg/validating-webhook-lock"
 	"kubevirt.io/managed-tenant-quota/tests/framework"
@@ -81,7 +81,7 @@ var _ = Describe("Blocked migration", func() {
 
 	It("Lock namespace for non migrating vms", func() {
 		cm := controller.NewVirtualMachineInstanceConditionManager()
-		vmi := libvmi.NewAlpine(
+		vmi := libfact.NewAlpine(
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 			libvmi.WithNetwork(kv1.DefaultPodNetwork()),
 			libvmi.WithNamespace(f.Namespace.GetName()),
