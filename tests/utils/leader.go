@@ -21,29 +21,17 @@ package utils
 
 import (
 	"context"
-	"encoding/json"
 	"kubevirt.io/managed-tenant-quota/pkg/mtq-operator/resources/utils"
 
 	"kubevirt.io/client-go/kubecli"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/leaderelection/resourcelock"
 )
 
 func GetLeader(virtClient kubecli.KubevirtClient, mtqNS string) string {
-	controllerEndpoint, err := virtClient.CoreV1().Endpoints(mtqNS).Get(context.Background(), utils.ControllerPodName, v1.GetOptions{})
-	if err != nil {
+	controllerLease, err := virtClient.CoordinationV1().Leases(mtqNS).Get(context.Background(), utils.ControllerPodName, v1.GetOptions{})
+	if err != nil || controllerLease.Spec.HolderIdentity == nil {
 		return ""
 	}
-	var record resourcelock.LeaderElectionRecord
-	if recordBytes, found := controllerEndpoint.Annotations[resourcelock.LeaderElectionRecordAnnotationKey]; found {
-		err := json.Unmarshal([]byte(recordBytes), &record)
-		if err != nil {
-			return ""
-		}
-	} else {
-
-		return ""
-	}
-	return record.HolderIdentity
+	return *controllerLease.Spec.HolderIdentity
 }
