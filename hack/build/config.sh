@@ -23,7 +23,7 @@ MTQ_NAMESPACE=${MTQ_NAMESPACE:-mtq}
 CR_NAME=${CR_NAME:-mtq}
 
 # update this whenever new builder tag is created
-BUILDER_IMAGE=${BUILDER_IMAGE:-quay.io/kubevirt/kubevirt-mtq-bazel-builder:2308020931-11f239f}
+BUILDER_IMAGE=${BUILDER_IMAGE:-quay.io/kubevirt/kubevirt-mtq-bazel-builder:2408110714-1f1b6ba}
 
 function parseTestOpts() {
     pkgs=""
