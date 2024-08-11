@@ -15,6 +15,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/managed-tenant-quota/pkg/mtq-lock-server/validation"
 	validating_webhook_lock "kubevirt.io/managed-tenant-quota/pkg/validating-webhook-lock"
@@ -81,7 +82,7 @@ var _ = Describe("Blocked migration", func() {
 
 	It("Lock namespace for non migrating vms", func() {
 		cm := controller.NewVirtualMachineInstanceConditionManager()
-		vmi := libfact.NewAlpine(
+		vmi := libvmifact.NewAlpine(
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 			libvmi.WithNetwork(kv1.DefaultPodNetwork()),
 			libvmi.WithNamespace(f.Namespace.GetName()),
@@ -98,11 +99,11 @@ var _ = Describe("Blocked migration", func() {
 			return validating_webhook_lock.LockNamespace(f.Namespace.GetName(), f.MTQInstallNs, f.VirtClient, caBundle)
 		}, 20*time.Second, 1*time.Second).ShouldNot(HaveOccurred(), "should be able to lock namespaced")
 
-		vmi, err = f.VirtClient.VirtualMachineInstance(vmi.Namespace).Create(context.TODO(), vmi)
+		vmi, err = f.VirtClient.VirtualMachineInstance(vmi.Namespace).Create(context.TODO(), vmi, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(func() error {
-			vmi, err = f.VirtClient.VirtualMachineInstance(vmi.Namespace).Get(context.TODO(), vmi.Name, &metav1.GetOptions{})
+			vmi, err = f.VirtClient.VirtualMachineInstance(vmi.Namespace).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			if !cm.HasConditionWithStatus(vmi, kv1.VirtualMachineInstanceSynchronized, v1.ConditionFalse) {
 				return fmt.Errorf("vmi be rejected by the mtq-lock-server")
@@ -199,7 +200,7 @@ var _ = Describe("Blocked migration", func() {
 	})
 
 	It("Do not lock ns for migrations", func() {
-		vmi := libvmi.NewAlpine(
+		vmi := libvmifact.NewAlpine(
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 			libvmi.WithNetwork(kv1.DefaultPodNetwork()),
 			libvmi.WithNamespace(f.Namespace.GetName()),
@@ -216,7 +217,7 @@ var _ = Describe("Blocked migration", func() {
 			return validating_webhook_lock.LockNamespace(f.Namespace.GetName(), f.MTQInstallNs, f.VirtClient, caBundle)
 		}, 20*time.Second, 1*time.Second).ShouldNot(HaveOccurred(), "should be able to lock namespaced")
 
-		migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+		migration := libmigration.New(vmi.Name, vmi.Namespace)
 		libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(f.VirtClient, migration)
 	})
 })
