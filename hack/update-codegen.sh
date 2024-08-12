@@ -17,7 +17,19 @@
 set -o errexit
 set -o nounset
 set -o pipefail
+set -x
 export GO111MODULE=on
+
+export SCRIPT_ROOT="$(cd "$(dirname $0)/../" && pwd -P)"
+CODEGEN_PKG=${CODEGEN_PKG:-$(
+    cd ${SCRIPT_ROOT}
+    ls -d -1 ./vendor/k8s.io/code-generator 2>/dev/null || echo ../code-generator
+)}
+
+(GOPROXY=off go install ${CODEGEN_PKG}/cmd/deepcopy-gen)
+(GOPROXY=off go install ${CODEGEN_PKG}/cmd/client-gen)
+(GOPROXY=off go install ${CODEGEN_PKG}/cmd/informer-gen)
+(GOPROXY=off go install ${CODEGEN_PKG}/cmd/lister-gen)
 
 export SCRIPT_ROOT="$(cd "$(dirname $0)/../" && pwd -P)"
 CODEGEN_PKG=${CODEGEN_PKG:-$(
@@ -28,16 +40,39 @@ CODEGEN_PKG=${CODEGEN_PKG:-$(
 find "${SCRIPT_ROOT}/pkg/" -name "*generated*.go" -exec rm {} -f \;
 find "${SCRIPT_ROOT}/staging/src/kubevirt.io/managed-tenant-quota-api/" -name "*generated*.go" -exec rm {} -f \;
 rm -rf "${SCRIPT_ROOT}/pkg/generated"
+mkdir "${SCRIPT_ROOT}/pkg/generated"
+mkdir "${SCRIPT_ROOT}/pkg/generated/clientset"
+mkdir "${SCRIPT_ROOT}/pkg/generated/informers"
+mkdir "${SCRIPT_ROOT}/pkg/generated/listers"
 
-# generate the code with:
-# --output-base    because this script should also be able to run inside the vendor dir of
-#                  k8s.io/kubernetes. The output-base is needed for the generators to output into the vendor dir
-#                  instead of the $GOPATH directly. For normal projects this can be dropped.
-/bin/bash ${CODEGEN_PKG}/generate-groups.sh "deepcopy,client,informer,lister" \
-  kubevirt.io/managed-tenant-quota/pkg/generated \
-  kubevirt.io/managed-tenant-quota/staging/src/kubevirt.io/managed-tenant-quota-api/pkg/apis  \
-    "core:v1alpha1 " \
-    --go-header-file ${SCRIPT_ROOT}/hack/custom-boilerplate.go.txt
+deepcopy-gen \
+	--output-file zz_generated.deepcopy.go \
+	--go-header-file "${SCRIPT_ROOT}/hack/custom-boilerplate.go.txt" \
+    kubevirt.io/managed-tenant-quota/staging/src/kubevirt.io/managed-tenant-quota-api/pkg/apis/core/v1alpha1
+
+client-gen \
+	--clientset-name versioned \
+	--input-base kubevirt.io/managed-tenant-quota/staging/src/kubevirt.io/managed-tenant-quota-api/pkg/apis \
+    --output-dir "${SCRIPT_ROOT}/pkg/generated/clientset" \
+	--output-pkg kubevirt.io/managed-tenant-quota/pkg/generated/clientset \
+	--apply-configuration-package '' \
+	--go-header-file "${SCRIPT_ROOT}/hack/custom-boilerplate.go.txt" \
+    --input core/v1alpha1
+
+lister-gen \
+	--output-dir "${SCRIPT_ROOT}/pkg/generated/listers" \
+    --output-pkg kubevirt.io/managed-tenant-quota/pkg/generated/listers \
+	--go-header-file "${SCRIPT_ROOT}/hack/custom-boilerplate.go.txt" \
+    kubevirt.io/managed-tenant-quota/staging/src/kubevirt.io/managed-tenant-quota-api/pkg/apis/core/v1alpha1
+
+informer-gen \
+	--versioned-clientset-package kubevirt.io/managed-tenant-quota/pkg/generated/clientset/versioned \
+	--listers-package kubevirt.io/managed-tenant-quota/pkg/generated/listers \
+	--output-dir "${SCRIPT_ROOT}/pkg/generated/informers" \
+    --output-pkg kubevirt.io/managed-tenant-quota/pkg/generated/informers \
+	--go-header-file "${SCRIPT_ROOT}/hack/custom-boilerplate.go.txt" \
+    kubevirt.io/managed-tenant-quota/staging/src/kubevirt.io/managed-tenant-quota-api/pkg/apis/core/v1alpha1
+
 echo "************* running controller-gen to generate schema yaml ********************"
 (
     mkdir -p "${SCRIPT_ROOT}/_out/manifests/schema"

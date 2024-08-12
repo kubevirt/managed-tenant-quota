@@ -12,9 +12,11 @@ import (
 	kv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/libmigration"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libpod"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/testsuite"
 	mtq_controller "kubevirt.io/managed-tenant-quota/pkg/mtq-controller/vmmrq-controller"
 	"kubevirt.io/managed-tenant-quota/tests/events"
@@ -43,9 +45,10 @@ var _ = Describe("Blocked migration", func() {
 				opts = append(opts, libvmi.WithLimitCPU("2"))
 			}
 
-			vmi := libvmi.NewAlpine(opts...)
+			vmi := libvmifact.NewAlpine(opts...)
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
-			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+			vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+			Expect(err).ToNot(HaveOccurred())
 			podResources, err := getCurrLauncherUsage(vmiPod)
 			Expect(err).To(Not(HaveOccurred()))
 			rq := NewQuotaBuilder().
@@ -63,7 +66,7 @@ var _ = Describe("Blocked migration", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Starting the Migration")
-			migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+			migration := libmigration.New(vmi.Name, vmi.Namespace)
 			migration = libmigration.RunMigration(f.VirtClient, migration)
 			Eventually(func() error {
 				if migrationHasRejectedByResourceQuotaCond(f.VirtClient, migration) {
@@ -93,14 +96,15 @@ var _ = Describe("Blocked migration", func() {
 		)
 
 		It("single blocked migration with several restrictions ", func() {
-			vmi := libvmi.NewAlpine(
+			vmi := libvmifact.NewAlpine(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(kv1.DefaultPodNetwork()),
 				libvmi.WithNamespace(f.Namespace.GetName()),
 				libvmi.WithLimitCPU("2"),
 			)
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
-			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+			vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+			Expect(err).ToNot(HaveOccurred())
 			podResources, err := getCurrLauncherUsage(vmiPod)
 			Expect(err).To(Not(HaveOccurred()))
 			rq := NewQuotaBuilder().
@@ -122,7 +126,7 @@ var _ = Describe("Blocked migration", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Starting the Migration")
-			migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+			migration := libmigration.New(vmi.Name, vmi.Namespace)
 			migration = libmigration.RunMigration(f.VirtClient, migration)
 			Eventually(func() error {
 				if migrationHasRejectedByResourceQuotaCond(f.VirtClient, migration) {
@@ -151,7 +155,7 @@ var _ = Describe("Blocked migration", func() {
 			var vmiList []*kv1.VirtualMachineInstance
 			var vmimList []*kv1.VirtualMachineInstanceMigration
 			for _, vmiName := range vmiNames {
-				vmi := libvmi.NewAlpine(
+				vmi := libvmifact.NewAlpine(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(kv1.DefaultPodNetwork()),
 					libvmi.WithNamespace(f.Namespace.GetName()),
@@ -166,8 +170,8 @@ var _ = Describe("Blocked migration", func() {
 				// Add the VMI to the VMI list
 				vmiList = append(vmiList, vmi)
 			}
-
-			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmiList[0], f.Namespace.GetName())
+			vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmiList[0], f.Namespace.GetName())
+			Expect(err).ToNot(HaveOccurred())
 			podResources, err := getCurrLauncherUsage(vmiPod)
 			originalQuantity := podResources[v1.ResourceRequestsMemory]
 			multipliedValue := originalQuantity.Value() * int64(len(vmiNames))
@@ -190,7 +194,7 @@ var _ = Describe("Blocked migration", func() {
 
 			By("Starting the Migration")
 			for _, vmi := range vmiList {
-				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration := libmigration.New(vmi.Name, vmi.Namespace)
 				migration = libmigration.RunMigration(f.VirtClient, migration)
 				Eventually(func() error {
 					if migrationHasRejectedByResourceQuotaCond(f.VirtClient, migration) {
@@ -227,14 +231,15 @@ var _ = Describe("Blocked migration", func() {
 		})
 
 		It("single blocked migration with several restricting resourceQuotas ", func() {
-			vmi := libvmi.NewAlpine(
+			vmi := libvmifact.NewAlpine(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(kv1.DefaultPodNetwork()),
 				libvmi.WithNamespace(f.Namespace.GetName()),
 				libvmi.WithLimitCPU("2"),
 			)
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
-			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+			vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+			Expect(err).ToNot(HaveOccurred())
 			podResources, err := getCurrLauncherUsage(vmiPod)
 			Expect(err).To(Not(HaveOccurred()))
 			resources := []v1.ResourceName{v1.ResourceLimitsCPU, v1.ResourceRequestsMemory, v1.ResourceRequestsCPU}
@@ -257,7 +262,7 @@ var _ = Describe("Blocked migration", func() {
 				Build()
 
 			By("Starting the Migration")
-			migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+			migration := libmigration.New(vmi.Name, vmi.Namespace)
 			migration = libmigration.RunMigration(f.VirtClient, migration)
 			Eventually(func() error {
 				if migrationHasRejectedByResourceQuotaCond(f.VirtClient, migration) {
@@ -298,13 +303,14 @@ var _ = Describe("Blocked migration", func() {
 			events.DeleteEvents(f.Namespace.GetName(), v1.Pod{}.Kind, v1.EventTypeWarning, mtq_controller.FailedToReleaseMigrationReason)
 		})
 		DescribeTable("Check event creation when a migration cannot be released", func(releaseMigration bool) {
-			vmi := libvmi.NewAlpine(
+			vmi := libvmifact.NewAlpine(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(kv1.DefaultPodNetwork()),
 				libvmi.WithNamespace(f.Namespace.GetName()),
 			)
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
-			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+			vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+			Expect(err).ToNot(HaveOccurred())
 			podResources, err := getCurrLauncherUsage(vmiPod)
 			Expect(err).To(Not(HaveOccurred()))
 			rq := NewQuotaBuilder().
@@ -326,7 +332,7 @@ var _ = Describe("Blocked migration", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Starting the Migration")
-			migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+			migration := libmigration.New(vmi.Name, vmi.Namespace)
 			migration = libmigration.RunMigration(f.VirtClient, migration)
 			Eventually(func() error {
 				if migrationHasRejectedByResourceQuotaCond(f.VirtClient, migration) {
@@ -377,11 +383,11 @@ var _ = Describe("Blocked migration", func() {
 
 			for _, ns := range namespaces {
 				opts = append(opts, libvmi.WithNamespace(ns))
-				vmiMap[ns] = libvmi.NewAlpine(opts...)
+				vmiMap[ns] = libvmifact.NewAlpine(opts...)
 				vmiMap[ns] = tests.RunVMIAndExpectLaunch(vmiMap[ns], 30)
 			}
-
-			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmiMap[ns1.GetName()], vmiMap[ns1.GetName()].Namespace)
+			vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmiMap[ns1.GetName()], vmiMap[ns1.GetName()].Namespace)
+			Expect(err).ToNot(HaveOccurred())
 			podResources, err := getCurrLauncherUsage(vmiPod) //all pods require same resources
 			Expect(err).To(Not(HaveOccurred()))
 			resources := []v1.ResourceName{v1.ResourceEphemeralStorage, v1.ResourceRequestsMemory, v1.ResourceRequestsCPU}
@@ -398,7 +404,7 @@ var _ = Describe("Blocked migration", func() {
 			}
 			By("Starting the Migrations")
 			for _, ns := range namespaces {
-				migrationMap[ns] = tests.NewRandomMigration(vmiMap[ns].Name, vmiMap[ns].Namespace)
+				migrationMap[ns] = libmigration.New(vmiMap[ns].Name, vmiMap[ns].Namespace)
 				migrationMap[ns] = libmigration.RunMigration(f.VirtClient, migrationMap[ns])
 				Eventually(func() error {
 					if migrationHasRejectedByResourceQuotaCond(f.VirtClient, migrationMap[ns]) {
@@ -448,7 +454,7 @@ var _ = Describe("Blocked migration", func() {
 	})
 
 	It("migrations with system abuse attempt", func() {
-		vmi := libvmi.NewAlpine(
+		vmi := libvmifact.NewAlpine(
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 			libvmi.WithNetwork(kv1.DefaultPodNetwork()),
 			libvmi.WithNamespace(f.Namespace.GetName()),
@@ -456,7 +462,8 @@ var _ = Describe("Blocked migration", func() {
 		)
 		vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 
-		vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
+		vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+		Expect(err).ToNot(HaveOccurred())
 		podResources, err := getCurrLauncherUsage(vmiPod)
 		Expect(err).To(Not(HaveOccurred()))
 		rq := NewQuotaBuilder().
@@ -489,7 +496,7 @@ var _ = Describe("Blocked migration", func() {
 
 		By("Making sure pod doesn't get additional resources in 5 increasements")
 		for range []int{1, 2, 3, 4, 5} {
-			migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+			migration := libmigration.New(vmi.Name, vmi.Namespace)
 			migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(f.VirtClient, migration)
 		}
 		// Call the cancel function to stop the abusing process
@@ -520,7 +527,7 @@ var _ = Describe("Blocked migration", func() {
 		}
 		_, err := f.VirtClient.CoreV1().LimitRanges(limitRange.Namespace).Create(context.TODO(), limitRange, metav1.CreateOptions{})
 		Expect(err).To(Not(HaveOccurred()))
-		vmi := libvmi.NewAlpine(
+		vmi := libvmifact.NewAlpine(
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 			libvmi.WithNetwork(kv1.DefaultPodNetwork()),
 			libvmi.WithNamespace(f.Namespace.GetName()),
@@ -529,7 +536,8 @@ var _ = Describe("Blocked migration", func() {
 		)
 		vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 
-		vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
+		vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+		Expect(err).ToNot(HaveOccurred())
 		podResources, err := getCurrLauncherUsage(vmiPod)
 		Expect(err).To(Not(HaveOccurred()))
 		rq := NewQuotaBuilder().
@@ -555,7 +563,7 @@ var _ = Describe("Blocked migration", func() {
 		_, err = f.MtqClient.MtqV1alpha1().VirtualMachineMigrationResourceQuotas(vmmrq.Namespace).Create(context.TODO(), vmmrq, metav1.CreateOptions{})
 		Expect(err).To(Not(HaveOccurred()))
 
-		migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+		migration := libmigration.New(vmi.Name, vmi.Namespace)
 		migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(f.VirtClient, migration)
 
 	})
@@ -564,7 +572,7 @@ var _ = Describe("Blocked migration", func() {
 
 func migrationHasRejectedByResourceQuotaCond(virtClient kubecli.KubevirtClient, migration *kv1.VirtualMachineInstanceMigration) bool {
 	conditionManager := controller.NewVirtualMachineInstanceMigrationConditionManager()
-	migrationObj, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
+	migrationObj, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(context.Background(), migration.Name, metav1.GetOptions{})
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	return conditionManager.HasCondition(migrationObj, kv1.VirtualMachineInstanceMigrationRejectedByResourceQuota)
 }

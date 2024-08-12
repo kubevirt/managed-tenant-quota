@@ -852,7 +852,7 @@ func (ctrl *VmmrqController) outboundMigrationsOnNode(node string, runningMigrat
 // where we already see a target pod.
 func (ctrl *VmmrqController) findRunningMigrations() ([]*v1alpha1.VirtualMachineInstanceMigration, error) {
 	// Don't start new migrations if we wait for migration object updates because of new target pods
-	notFinishedMigrations := migrations.ListUnfinishedMigrations(ctrl.migrationInformer)
+	notFinishedMigrations := migrations.ListUnfinishedMigrations(ctrl.migrationInformer.GetStore())
 	var runningMigrations []*v1alpha1.VirtualMachineInstanceMigration
 	for _, migration := range notFinishedMigrations {
 		if migration.IsRunning() {

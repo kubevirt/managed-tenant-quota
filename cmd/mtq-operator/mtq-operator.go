@@ -9,6 +9,7 @@ import (
 	"kubevirt.io/managed-tenant-quota/pkg/util"
 	"kubevirt.io/managed-tenant-quota/staging/src/kubevirt.io/managed-tenant-quota-api/pkg/apis/core/v1alpha1"
 	"runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
@@ -62,7 +63,11 @@ func main() {
 	}
 
 	managerOpts := manager.Options{
-		Namespace:                  namespace,
+		Cache: cache.Options{
+			DefaultNamespaces: map[string]cache.Config{
+				namespace: {},
+			},
+		},
 		LeaderElection:             true,
 		LeaderElectionNamespace:    namespace,
 		LeaderElectionID:           "mtq-operator-leader-election-helper",
