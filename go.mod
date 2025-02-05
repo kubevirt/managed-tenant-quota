@@ -5,8 +5,8 @@ go 1.22.0
 toolchain go1.22.6
 
 require (
-	k8s.io/apimachinery v0.30.2
-	k8s.io/code-generator v0.30.2
+	k8s.io/apimachinery v0.30.9
+	k8s.io/code-generator v0.30.9
 )
 
 require (
@@ -127,14 +127,14 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/api v0.30.2
-	k8s.io/apiextensions-apiserver v0.30.2
-	k8s.io/apiserver v0.30.2
-	k8s.io/component-base v0.30.2 // indirect
-	k8s.io/component-helpers v0.30.2 // indirect
+	k8s.io/api v0.30.9
+	k8s.io/apiextensions-apiserver v0.30.9
+	k8s.io/apiserver v0.30.9
+	k8s.io/component-base v0.30.9 // indirect
+	k8s.io/component-helpers v0.30.9 // indirect
 	k8s.io/klog/v2 v2.120.1
-	k8s.io/kube-openapi v0.30.0 // indirect
-	k8s.io/kubernetes v1.30.2
+	k8s.io/kube-openapi v0.30.9 // indirect
+	k8s.io/kubernetes v1.30.9
 	k8s.io/utils v0.0.0-20240423183400-0849a56e8f22
 	kubevirt.io/api v1.3.0
 	kubevirt.io/client-go v1.3.0
@@ -147,18 +147,18 @@ require (
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
 
-replace k8s.io/component-helpers => k8s.io/component-helpers v0.30.2
+replace k8s.io/component-helpers => k8s.io/component-helpers v0.30.9
 
 replace (
 	github.com/openshift/api => github.com/openshift/api v0.0.0-20240625084701-0689f006bcde
 	github.com/openshift/client-go => github.com/openshift/client-go v0.0.0-20240528061634-b054aa794d87
 	github.com/openshift/library-go => github.com/openshift/library-go v0.0.0-20240621150525-4bb4238aef81
 	github.com/operator-framework/operator-lifecycle-manager => github.com/operator-framework/operator-lifecycle-manager v0.0.0-20190128024246-5eb7ae5bdb7a
-	k8s.io/api => k8s.io/api v0.30.2
-	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.30.2
-	k8s.io/apimachinery => k8s.io/apimachinery v0.30.2
-	k8s.io/apiserver => k8s.io/apiserver v0.30.2
-	k8s.io/client-go => k8s.io/client-go v0.30.2
+	k8s.io/api => k8s.io/api v0.30.9
+	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.30.9
+	k8s.io/apimachinery => k8s.io/apimachinery v0.30.9
+	k8s.io/apiserver => k8s.io/apiserver v0.30.9
+	k8s.io/client-go => k8s.io/client-go v0.30.9
 	k8s.io/cloud-provider => k8s.io/cloud-provider v0.26.3
 	k8s.io/cluster-bootstrap => k8s.io/cluster-bootstrap v0.26.3
 	k8s.io/component-base => k8s.io/component-base v0.26.3
